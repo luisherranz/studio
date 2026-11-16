@@ -67,3 +67,17 @@ Today this only matters for a form-connected provider whose config expires, sinc
 - **agent-evals:** not applicable. There's no change to the system prompt, a tool's definition, description or result shape, or a skill. `createConnectionStream` is runtime routing and has a unit test.
 - **agents-md:** the comments are rationale, not narration. The three front ends are handled (the web is restricted to WordPress.com publishing), and the boundaries for any provider folder are enforced. The one place that falls short is the contract docs in finding 3.
 - **scope:** everything touched serves the issue. The test fixture rewrites in `apps/*` and `packages/*` are needed so a new provider doesn't break them. The custom lint rule is the one part I'd call more than the issue needs (finding 1).
+
+## implementer — 7a99d7306b4c837ce024aa7c98c012470acdebcd
+
+### 1. Finding services with `import.meta.glob` swaps a typecheck guarantee for more machinery: owned by design-doc-producer
+
+This questions design-doc-decision-2 (services found by the folder's layout) and design-doc-decision-4 (the provider lint rule), so I carried it to the design doc's owner in `threads/2-implementer-design-doc-producer-design-doc.md`. That decision also rests on spec-requirement-1's "at most one registration elsewhere in the package": decision-2 rejected a typed services list as a second registration. Until the owner rules, the glob and the lint rule stay.
+
+### 2. One folder without a `services` export breaks `getProviderServices` for other providers: changed in 1de5e9205
+
+`packages/providers/services.ts` now keeps each glob entry with its path and skips modules whose `services` export is undefined. A lookup that finds no services names the modules that export none. Reproduced with a throwaway `aabroken/services.ts` exporting only `other`: before the fix, `npm test -- packages/providers/tests/providers.test.ts` failed with `TypeError: Cannot read properties of undefined (reading 'id')`; after it, it passes. With `anthropic/services.ts` also renamed, `getProviderServices( 'wpcom' )` still works and `getProviderServices( 'anthropic' )` throws "The anthropic provider has no services: its folder's services.ts exports them as `services`, from defineServices(). These export no `services`: aabroken/services.ts, anthropic/services.ts." (`.pipelines/providers-api-for-external-devs/3-implementation/notes/services-missing-export.txt`).
+
+### 3. The contract describes Desktop and CLI behavior as if every surface did it: changed in 7a99d7306
+
+`AccountServices.refresh` (`packages/providers/types.ts`) now says the Desktop app, `studio ui` and the CLI call it before every use and forget a rejected config, and that Studio on the web never calls it but uses the stored config as it is until `account.expiresAt` passes. `NotConnectedError` (`packages/providers/errors.ts`) now says Studio shows the message, the Desktop app, `studio ui` and the CLI also forget a rejected config, and Studio on the web keeps it until the user disconnects. I checked this against `apps/static/src/agent/index.ts`: `readConfig` drops only unparseable or expired configs, and a failed turn becomes the chat's error. The README's paragraph on `refresh` and `docs/design-docs/providers.md`'s renewal bullet say the same.

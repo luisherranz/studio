@@ -39,3 +39,13 @@ I reproduced this through `listAccountSites` with a synthetic hosting service re
 - **scope:** No unrelated refactor identified. Consumer/storage adjustments support registering providers without editing each consumer. No implementation changes made during review.
 
 Review scope: branch compared with `76c54690ba3f802aee117ca1fd067db48688e313`.
+
+## implementer — 7a99d7306b4c837ce024aa7c98c012470acdebcd
+
+### 1. Require `start` when any connect method needs it: changed in 968f1e787
+
+`ServicesOf` now tests whether `Extract< Method, { kind: 'loopback' | 'device' } >` is non-empty instead of distributing over `Method`, so a form next to a device or loopback method still requires `start` (`packages/providers/types.ts`). `packages/providers/tests/contract.test.ts` gains negative cases for form + device and form + loopback, and a positive one with `start`. Before the fix the new `@ts-expect-error` was reported as unused (TS2578), confirming the hole. After it, the error is "Property 'start' is missing … but required in type 'Required<Pick<AccountServices<…>, "start">>'", at the services argument (`.pipelines/providers-api-for-external-devs/3-implementation/notes/contract-type-errors.txt`). `npm run typecheck` passes, OpenAI's loopback + form account included.
+
+### 2. Do not handle a rejected refresh twice: changed in d8cd354fa
+
+`listAccountSites` and `createRemoteSite` (`packages/common/sites/remote-sites.ts`) now read `readFreshProviderConfig( provider )` before entering `forgetRejectedConfig`. A rejected renewal is then forgotten once, by `readFreshProviderConfig`, which keeps `account.remember`. `studio push` already read it outside its wrappers. `packages/common/sites/remote-sites.test.ts` adds a test with a refreshing account that remembers its registration (OpenAI's ChatGPT descriptor, `clientId`), for both listing and creating. Before the fix it failed with `expected undefined to deeply equal { clientId: 'oaiapp_registration' }`. After it, it passes, and the operation's own service is never called.

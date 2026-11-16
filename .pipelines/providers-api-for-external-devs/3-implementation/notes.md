@@ -15,6 +15,11 @@ status: done
 - `apps/ui` publishes only to WordPress.com where `nativeSites` is false. Commit edeaca9a0.
 - Hosting operations renew an expiring credential before listing, creating or pushing. Commit 69ef06883.
 - README and `docs/design-docs/providers.md` (87e9f9414); contract and error docs for what a new provider handles (093f86fd5).
+- Review fixes:
+  - `ServicesOf` requires `start` whenever any method is a device or loopback sign-in, also alongside a form (968f1e787).
+  - `listAccountSites` and `createRemoteSite` renew the config before their rejection handler, so a rejected renewal keeps `account.remember` (d8cd354fa).
+  - `getProviderServices` skips a folder whose `services.ts` exports no `services`, and names such modules in its error (1de5e9205; `notes/services-missing-export.txt`).
+  - The contract, README and design doc say which apps renew and forget configs, and what Studio on the web does (7a99d7306).
 
 ### Proofs run
 
@@ -39,9 +44,9 @@ None.
 - The `redirect` rejection brands the kind (`'redirect' & { 'redirect is the Studio sign-in, which only WordPress.com declares': never }`), so the error lands on `kind` and names it.
 - A provider annotates its site type in `sites.describe`'s parameter; `defineProvider` infers the site type from there.
 - Each folder's services module exports `services`; parts typed separately use `ServicesOf< typeof xProvider >[ 'account' | 'ai' | 'sites' ]`.
-- `services.ts` calls `import.meta.glob(` without a type argument: Vitest's file-system module cache skips only modules containing that literal, and a cached transform kept a stale folder list.
+- `services.ts` calls `import.meta.glob(` without a type argument: Vitest's file-system module cache skips only modules containing that literal, and a cached transform kept a stale folder list. A module without the `services` export comes back undefined, so lookups skip it; the glob returns folders alphabetically, so an unchecked one broke every provider after it.
 - The lint rule parses `registry.ts` with the parser ESLint lints with (`context.languageOptions.parser`); its tests use espree with JS-only fixtures.
-- Hosting operations (`listAccountSites`, `createRemoteSite`, `studio push`) read the config through `readFreshProviderConfig`, so a provider with sites and a renewing credential is renewed before use (spec-requirement-2), as chats were. No existing hosting provider renews, so their behavior is unchanged.
+- Hosting operations (`listAccountSites`, `createRemoteSite`, `studio push`) read the config through `readFreshProviderConfig`, so a provider with sites and a renewing credential is renewed before use (spec-requirement-2), as chats were. No existing hosting provider renews, so their behavior is unchanged. They read it outside `forgetRejectedConfig`: `readFreshProviderConfig` forgets a rejected renewal on its own, and a second handler would clear what `account.remember` kept.
 - No agent-facing behavior changed (system prompt, tools, result shapes, skills), so no eval case applies.
 
 ## Failed approaches
