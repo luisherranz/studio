@@ -1,0 +1,17 @@
+Revision: 924fe372f29bc036cc2cc74b4458a5127872cfe3
+Command: npm test -- --project=providers
+
+> test
+> vitest run --project=providers
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (apps/studio/vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.5 <worktree>
+
+
+ Test Files  16 passed (16)
+      Tests  117 passed (117)
+   Start at  11:18:53
+   Duration  2.57s (environment 65%, tests 21%, transform 9%, import 5%, worker 1%)
