@@ -1,0 +1,12 @@
+Revision: 924fe372f29bc036cc2cc74b4458a5127872cfe3
+Command: node --input-type=module (TypeScript compiler API; one in-memory consumer of the current public types, no files emitted)
+In-memory source:
+import type { ProviderId, AiModelId } from './index';
+const existingProvider: ProviderId = 'anthropic';
+const existingModel: AiModelId = 'balanced';
+const additionalProvider: ProviderId = 'external-example';
+const additionalModel: AiModelId = 'external-example-model';
+
+packages/providers/external-api-observation.ts:4:7 TS2322: Type '"external-example"' is not assignable to type 'ProviderId'.
+packages/providers/external-api-observation.ts:5:7 TS2322: Type '"external-example-model"' is not assignable to type '"gemini-3.8-flash" | "gemini-4-argon" | "fast" | "balanced" | "strong" | "claude-sonnet-5-5" | "claude-opus-5-5" | "gpt-6.1-terra" | "gpt-6.1-sol"'.
+Total diagnostics: 2
