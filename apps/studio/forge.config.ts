@@ -104,6 +104,11 @@ const config: ForgeConfig = {
 			/^\/.*\.log$/,
 			// Source maps are uploaded to Sentry at build time and not needed at runtime.
 			/\.map$/,
+			// Type declarations only serve type checking.
+			/\.d\.[cm]?ts$/,
+			// Build tools @sentry/node depends on only for its bundler plugins, which the main
+			// process never loads.
+			/\/node_modules\/(sentry|@sentry\/bundler-plugins|oxc-parser|@oxc-parser|@oxc-project)(\/|$)/,
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
