@@ -1,0 +1,39 @@
+# How Ollama 0.40.0 reports the context it runs a model with, and how it cuts a request (2026-11-16)
+
+Server: OLLAMA_HOST=127.0.0.1:11570 OLLAMA_MODELS=<temp dir> OLLAMA_CONTEXT_LENGTH=4096 ollama serve
+$ ollama --version
+ollama version is 0.40.0
+Server log: msg="Listening on 127.0.0.1:11570 (version 0.40.0)"
+Server log: msg="vram-based default context" total_vram="37.4 GiB" default_num_ctx=32768   (overridden by OLLAMA_CONTEXT_LENGTH)
+$ OLLAMA_HOST=127.0.0.1:11570 ollama pull qwen3:0.6b   -> success
+
+## The OpenAI-compatible API says nothing about context or capabilities
+GET /v1/models               -> {"object":"list","data":[{"id":"qwen3:0.6b","object":"model","created":1794826879,"owned_by":"library"}]}
+GET /v1/models/qwen3:0.6b    -> {"id":"qwen3:0.6b","object":"model","created":1794826879,"owned_by":"library"}
+
+## POST /api/show {"model":"qwen3:0.6b"} (Ollama's own API)
+keys: capabilities, details, license, model_info, modelfile, modified_at, parameters, template, thinking
+capabilities: ['completion', 'tools', 'thinking']
+parameters: top_p, repeat_penalty, stop, temperature, top_k   (no num_ctx)
+model_info context: {'qwen3.context_length': 40960}   <- the trained maximum, not the 4096 the server runs it with
+
+## GET /api/ps (Ollama's own API): the running context, only once the model is loaded
+before any request:                     {"models":[]}
+after a chat request:                   "context_length":4096
+unloaded with POST /api/generate {"model":"qwen3:0.6b","keep_alive":0} -> "done_reason":"unload"; /api/ps -> {"models":[]}
+loaded with   POST /api/generate {"model":"qwen3:0.6b"}                -> "done_reason":"load", HTTP 200 in 0.54 s
+then /api/ps -> [('qwen3:0.6b', 4096)]
+Server log for the load: llama-server ... -c 4096 -np 1 ... --context-shift --keep 4
+
+## A request longer than the context: cut silently, and the cut shows only after the reply streamed
+Request: POST /v1/chat/completions, 83,079-byte body (a 1,500-line system message and "Say hi."),
+max_tokens 20, stream true, stream_options.include_usage true
+HTTP 200
+20 streamed chunks carry the reply (reasoning deltas) before the last one, which carries the usage:
+"usage":{"prompt_tokens":2050,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens":20,"total_tokens":2070}
+Server log: msg="truncating input prompt" limit=2050 prompt=24408 keep=4 new=2050
+
+The same body with "truncate": false and stream false:
+HTTP 200, "finish_reason":"length", "usage":{"prompt_tokens":2050,...}
+Server log: msg="truncating input prompt" limit=2050 prompt=24408 keep=4 new=2050
+So the OpenAI-compatible endpoint has no switch that makes it refuse instead of cutting.
