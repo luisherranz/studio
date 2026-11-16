@@ -107,7 +107,8 @@ export interface AccountDetails {
 	// The provider's models this account can run, when its plan decides which: surfaces offer
 	// only these. Without it, the account runs every model the provider lists.
 	models?: AiModelId[];
-	// The model new chats on the account start on, in place of the provider's default.
+	// The model new chats on the account start on, for a provider whose models a server the user
+	// runs lists, which has no default of its own.
 	model?: AiModelId;
 	links?: { label: string; url: string }[];
 }
