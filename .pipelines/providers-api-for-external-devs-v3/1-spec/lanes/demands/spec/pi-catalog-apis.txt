@@ -1,0 +1,14 @@
+# node: for each pi-ai provider catalog, the count of chat models per `api` (pi-ai 1.5.0, at 9770853292)
+
+meta META_MODELS {"openai-responses":6}
+mistral MISTRAL_MODELS {"mistral-conversations":34}
+xai XAI_MODELS {"openai-responses":4}
+google GOOGLE_MODELS {"google-generative-ai":23}
+openai OPENAI_MODELS {"openai-responses":44}
+anthropic ANTHROPIC_MODELS {"anthropic-messages":17}
+github-copilot GITHUB_COPILOT_MODELS {"anthropic-messages":10,"openai-completions":3,"openai-responses":14}
+amazon-bedrock AMAZON_BEDROCK_MODELS {"bedrock-converse-stream":197}
+deepseek DEEPSEEK_MODELS {"openai-completions":2}
+groq GROQ_MODELS {"openai-completions":7}
+openrouter OPENROUTER_MODELS {"anthropic-messages":19,"openai-completions":369}
+together TOGETHER_MODELS {"openai-completions":15}
