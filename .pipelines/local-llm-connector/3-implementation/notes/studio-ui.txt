@@ -24,3 +24,10 @@ Settings → Providers → AI providers: WordPress.com, OpenAI, Anthropic, Googl
 
 ## Light and dark (prefers-color-scheme emulated)
 Checked in each scheme: the Local LLM row (server-rack logo tile, "Connected" badge, the address as the row's text, Manage button), the open connect form (instructions, Server address with its placeholder, the API key password field, Save and Disconnect), the model picker's list (each model with the provider's icon and "Local LLM"), and the image notice above the composer. All legible in both, with no hard-coded colours outside the provider's own logo tile, which keeps its dark background in both schemes like the other providers' tiles.
+
+## The picker and the composer when the server stops (after 8a6aa3574, d06667ae6 and 5d842973b), 2026-11-16
+studio ui (this worktree, port 8099), a new chat on site local-llm-connector-ui, the connector on Ollama 0.40.0 at 127.0.0.1:11555 (model qwen3-vl:2b).
+- Server running, model picker: qwen3-vl:2b, all-minilm:latest, gemma3:270m, qwen3:0.6b (each "Local LLM"), then "Connect AI providers".
+- Ollama stopped, picker reopened without reloading: one row "Local LLM" whose description reads "The local server at http://127.0.0.1:11555 isn’t answering. Start it, then send your message again." and no model rows; highlighted, the description scrolls to its end. Light: studio-ui-picker-error-light.png; dark: studio-ui-picker-error-dark.png. Choosing it opens Settings (?settings=providers), with the Local LLM row and Manage.
+- Ollama still stopped, an image attached and Enter: the composer keeps the draft and shows the alert "The local server at http://127.0.0.1:11555 isn’t answering. Start it, then send your message again" (not "Choose a model that supports images…"). Light: studio-ui-composer-down-light.png; dark: studio-ui-composer-down-dark.png.
+- Ollama started again, same draft: on qwen3:0.6b, Enter shows "Choose a model that supports images before sending these attachments"; switching to qwen3-vl:2b and pressing Enter right away sends it (the chat opens as a session and the attachment leaves the composer). The turn was then stopped with "Stop response".

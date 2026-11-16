@@ -1,0 +1,16 @@
+# studio code: /connect local-llm with a mistyped address, then the right one (after 07fa79554 and b4b786335), and /model (after 54b80a06f), 2026-11-16
+# Ollama 0.40.0 on 127.0.0.1:11555 (qwen3-vl:2b, all-minilm, gemma3:270m, qwen3:0.6b); nothing listens on 127.0.0.1:11999
+
+✔ Server address (saved for future use): 127.0.0.1:11999
+✔ API key (optional, saved for future use):
+No local server answered at 127.0.0.1:11999. Check the address, and that your server is running.
+✔ Server address (saved for future use): 127.0.0.1:11555
+✔ API key (optional, saved for future use):
+ ⏺ Connected Local LLM.
+
+/model:
+ Select a model
+ → 1. qwen3-vl:2b (current)
+   2. all-minilm:latest
+   3. gemma3:270m
+   4. qwen3:0.6b

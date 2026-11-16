@@ -1,0 +1,22 @@
+# A turn whose overflow compaction fails because the server stops answering (after 3bb3dc951), 2026-11-16
+# Ollama 0.40.0 on 127.0.0.1:11557 with OLLAMA_CONTEXT_LENGTH=16384, model qwen3:0.6b, behind a proxy on 127.0.0.1:11556
+# that forwards every request to Ollama except POST /v1/chat/completions, whose connection it drops (as a server that stopped would).
+# The connector is connected to 127.0.0.1:11556; Ollama reports a 16,384-token context, which Studio Code's first turn doesn't fit.
+
+## studio code --json "Reply with only the word: hello" (events, in order)
+agent_end willRetry=true   last assistant: error "context_length_exceeded: the request doesn’t fit the context the server runs the model with"
+compaction_start reason=overflow
+compaction_end reason=overflow willRetry=false (no result)
+agent_end willRetry=false  last assistant: error "Context overflow recovery failed: Turn prefix summarization failed: The local server at http://127.0.0.1:11556 isn’t answering. Start it, then send your message again."
+turn.completed status=error
+session studio.turn_closed: {"status":"error","errorMessage":"Context overflow recovery failed: Turn prefix summarization failed: The local server at http://127.0.0.1:11556 isn’t answering. Start it, then send your message again."}
+proxy log: GET /v1/models, POST /api/show, GET /api/ps, POST /api/generate (the load), GET /api/ps, then one dropped POST /v1/chat/completions (the summary request); no request for the turn itself.
+
+## The same in interactive studio code
+ 〉Reply with only the word hello.
+ ✸ Compacting conversation history…
+ ⏺ Context overflow recovery failed: Turn prefix summarization failed: The local server at http://127.0.0.1:11556 isn’t answering. Start it, then send your message again.
+
+## With Ollama at OLLAMA_CONTEXT_LENGTH=4096 behind the same proxy
+The summary request itself doesn't fit 4,096 tokens, so the connector refuses it before sending (the proxy saw no chat request), and the turn ends with:
+ "The context qwen3:0.6b runs with is too small for Studio Code. Raise its context length in your server’s settings."

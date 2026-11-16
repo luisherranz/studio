@@ -1,5 +1,5 @@
 ---
-status: done
+status: in-progress
 ---
 
 # Implementation notes
@@ -14,9 +14,17 @@ status: done
 - `studio code` re-resolves a chat that hasn't settled on a model after `/connect` to another server (7d9186ae8).
 - Docs: `docs/design-docs/providers.md`, `docs/design-docs/analytics-tracks.md`, `packages/providers/README.md`, the user docs' AI providers section (8bc4dbea9).
 - LM Studio loads a model that isn't loaded through a minimal `/v1/chat/completions` request before the connector reads its context, never its load API (9f4ae7ac2), as design-doc-decision-7 now has it: a first turn too large for LM Studio's default context ends in the connector's words, and the model keeps LM Studio's 60-minute idle TTL (`lmstudio.txt`).
+- A turn whose overflow compaction fails for a reason other than the overflow, such as a refused key or a server that stopped answering, ends with that failure (3bb3dc951; `summary-fails.txt`); the reply room in compaction sizing comes from pi's `MIN_ANSWER_TOKENS` (7c4f06bc6).
+- The model picker shows why a local server's models are missing when it doesn't answer, in a row that scrolls the reason into view and opens provider settings, never a stale list (8a6aa3574, d06667ae6); the composer waits for the listing before holding images back, and says why when the server doesn't answer (5d842973b). Both in `studio ui`, light and dark (`studio-ui.txt` and `studio-ui-picker-error-*.png`, `studio-ui-composer-down-*.png`).
+- The terminal's connect form asks for every field again when a form of several fields is rejected, so a mistyped address can be corrected; a form of one field keeps the rejection as its prompt's error (07fa79554, b4b786335; `connect-retry.txt`).
+- `/model` lists a local server's models by name alone, with a test of `/model` on a local server (54b80a06f).
+- Docs: the providers table row padded (b4f76c3f6); the user docs say Studio connects one local server at a time, and how to switch (1408b70ea); `AccountDetails.model` says it applies to providers whose models a server lists (2f2e1624c); comments that named a local server's provider twice over are shorter (bb6dee377).
 - End to end, with evidence in `notes/`: Ollama in `studio code` (`studio-code-ollama.txt`, `studio-code-long-chat.txt`, `studio-code-tools-offline-older-build.txt`), `studio ui` in light and dark and Studio on the web (`studio-ui.txt` and its screenshots), llama-server with a key (`llama-server.txt`), LM Studio (`lmstudio.txt`), vLLM (`vllm.txt`), a `take_screenshot` turn on a text-only model and the turn after it (`screenshot-text-only.txt`).
 
 ## Remaining
+
+- Thread `threads/2-implementer-spec-producer-spec.md`: whether the picker and `/model` leave out the models a server says can't chat, and connecting fails when none can (reviewer-astra 1, reviewer-opus 2); whether spec-requirement-11 keeps the remembered choice (reviewer-opus 5). If filtering is adopted: drop `chat === false` entries in `localLlmAi.listModels` (`local-llm/ai.ts`), replace `proposeModel`'s `entries[ 0 ]` fallback with a `ConnectError` (`local-llm/account.ts`), with cases in `local-llm/tests`. Then answer both reviewers with the result.
+- Thread `threads/3-implementer-design-doc-producer-design-doc.md`: whether design-doc-decision-3 stands for every provider (reviewer-opus 4), and whether the connector's form starts with the current address, through which contract (reviewer-opus 12). Act on the answer, then tell reviewer-opus.
 
 - Not observed here: a Studio Code turn on vLLM getting its reply. vLLM connected, listed its model with `max_model_len`, and accepted the turn's request (200), but its CPU backend on this Mac took 815 s to prefill a 9k-token prompt, past Node fetch's 300 s body timeout (`vllm.txt`). vLLM is meant to run on a GPU.
 - Agent evals: not run. The change doesn't touch the system prompt, a tool's definition, description or result shape, or a skill; the runtime changes act only on connections that state an exact window, which no built-in provider does.
@@ -31,12 +39,17 @@ status: done
 - The analytics `model` for the connector is the fixed `user-server-model`.
 - An unknown context gets a 128,000-token window and no exact-window statement.
 - pi needs a key to send a request; a server without one gets the placeholder `none`, which servers without auth ignore.
-- `getDefaultAiModel` for the connector with neither a chosen nor an account model returns WordPress.com's default, which the connector doesn't serve; `studio code` re-resolves the model after `/connect`.
+- `getDefaultAiModel` for the connector with neither a chosen nor an account model returns WordPress.com's default, which the connector doesn't serve; `studio code` re-resolves the model after `/connect`. It doesn't throw: the session view resolves the default during render for a site draft's `provider`, which nothing clears when that provider is disconnected (`session-view/index.tsx`, `use-site-chat-draft.ts`).
 - The exact-window guard refuses a request when pi's own output clamp would leave fewer than `MIN_ANSWER_TOKENS` for the reply; the refusal is a `context_length_exceeded` error pi compacts and retries on. Compaction for an exact window: `reserveTokens = min( 16384, share / 2 + 5120 )`, `keepRecentTokens = min( 20000, share / 4 )`, where `share` is the window less the system prompt and tools (by pi's estimate) and 5,120 tokens for the reply.
-- The overflow words replace the last assistant message's `errorMessage` in the final `agent_end`, and the overflow `compaction_end`'s error is dropped, so a surface shows the connection's words once.
+- On an exact window, an `agent_end` that ends on an overflow is forwarded as not final (`willRetry: true`) until pi's overflow compaction ends: a retry ends the turn itself; otherwise the runtime emits that end again as final, with the connection's words, or with pi's failure text when the compaction failed for a reason that isn't an overflow (it started, and its error isn't one pi reads as an overflow). If pi doesn't compact at all, the runtime ends the turn with the words once the prompt returns. The overflow `compaction_end`'s error is dropped then, so a surface shows the turn's failure once.
+- The terminal's connect form: a form of one field checks the values in its prompt's validation, as before; a longer form checks them once every field is entered, and asks for them all again on a `ConnectError`, which it prints.
+- The picker's row for a server that doesn't answer is enabled, because only enabled rows scroll their description, and choosing it opens provider settings. The composer reads image support at send time through `useReadListedModels` (the cached listing, else a read now), holding `sending` while it reads.
 - The connector's commits group its cross-package wiring in one commit: the derived requirements' code shares files (the connector's `ai.ts`, the CLI command), and splitting hunks after the fact was not worth the risk.
 
 ## Failed approaches
+
+- Asking every connect form again after a rejection: forms of one field lost the error under their prompt, and `apps/cli/ai/tests/auth.test.ts`, whose key is always rejected, looped until the heap ran out.
+- A disabled row for the picker's listing error: disabled rows don't scroll their description, so the reason was cut off at the address.
 
 - A quarter of the window for both compaction sizes: on windows near Studio Code's base request (~15k tokens by pi's estimate) the kept tail left no room after compacting, so sizes now come from what the system prompt and tools leave.
 - vLLM 0.11 with transformers 5 fails to start (`Qwen2Tokenizer has no attribute all_special_tokens_extended`); transformers 4.57 works.

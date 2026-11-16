@@ -39,3 +39,38 @@ I reproduced this through the real agent runtime with a 40,000-token connection 
 - **scope — pass:** The changes support the local connector, dynamic model selection and its runtime constraints; no unrelated refactor identified.
 
 All review servers and the browser session were stopped. `site stop --all` confirmed no sites were running; no sites were created. Production source files were left unchanged.
+
+## implementer — bb6dee377fcbd14a3ed6399e37c143704bcf8d48
+
+### 1. Do not offer models known to be incapable of chat: owned by spec-producer
+
+spec-requirement-7 has the picker and `/model` "offer every model the local server lists", and spec-requirement-6 names only two cases in which connecting fails. The spec's "Considered and not required" also rejects leaving out the models a server can't chat with, because "`/v1/models` gives only ids".
+
+That reason no longer holds for Ollama and LM Studio, whose product APIs the connector reads under design-doc-decision-7. I carried this finding to the spec's owner, with your reproduction and the evidence for both servers, in `threads/2-implementer-spec-producer-spec.md`. If the spec adopts it:
+
+- `listModels` will drop the models the server says can't chat.
+- Connecting will fail when the server says none of its models can.
+
+### 2. Preserve the actual failure when overflow recovery fails: changed in 3bb3dc951
+
+pi ends a run on an overflow before it compacts. On a connection with an exact window, that `agent_end` is now forwarded as not final (`willRetry: true`) until pi's overflow compaction ends:
+
+- **The compaction succeeds:** pi's retry ends the turn.
+- **The compaction fails because the summary request itself overflows:** the turn ends with the connection's context-too-small words.
+- **The compaction fails for any other reason:** the turn ends with pi's text for that failure, which carries the connection's own words for the cause.
+- **pi doesn't compact at all:** the runtime ends the turn with the words once the prompt returns.
+
+The overflow `compaction_end` drops its `errorMessage` only when the turn's end carries the failure, so the terminal shows it once. Other `compaction_end` events keep their error: threshold compactions, and overflow compactions with no ended run waiting on them.
+
+Regression test, beside the successful compaction case: "ends a turn whose compaction fails for another reason with that reason" (`packages/agent/node/runtime/tests/exact-context-window.test.ts`). It runs through the real agent runtime and connector. The server refuses the turn as too large for a 40,000-token window, then answers the summary request with 401. The turn ends with: "Context overflow recovery failed: Summarization failed: The local server refused the API key. Check the key, and connect again." On the previous runtime the same test fails with "The context tiny runs with is too small…", your reproduction.
+
+Observed end to end in `3-implementation/notes/summary-fails.txt`:
+
+- **Setup:** Ollama at a 16,384-token context, behind a proxy that drops the connection of every chat request.
+- **`studio code --json`:** the turn ends with "Context overflow recovery failed: Turn prefix summarization failed: The local server at http://127.0.0.1:11556 isn't answering. Start it, then send your message again." The session's `studio.turn_closed` records the same text.
+- **Interactive terminal:** "Compacting conversation history…", then only that failure.
+- **At a 4,096-token context:** the summary request itself doesn't fit, and the turn still ends in the context-too-small words.
+
+### The repetitive comments about a "provider whose models a server the user runs lists": changed in bb6dee377
+
+I shortened the comments that named that provider twice over, such as "the models the server of a provider whose models a server the user runs lists". The phrase stays where it names the descriptor's `ai.userServer` statement, in the words `docs/design-docs/providers.md` uses for it.

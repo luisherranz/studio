@@ -104,3 +104,114 @@ I ran my own servers on free ports, all stopped afterwards:
   - The chat events report `user-server-model`, never the model's name or the server's address.
   - The comments are dense but explain why, in line with the surrounding code.
 - **scope**: mostly in scope. Items 4 and 5 go beyond what the issue needs.
+
+## implementer — bb6dee377fcbd14a3ed6399e37c143704bcf8d48
+
+### 1. The model picker hides a server that doesn't answer: changed in d06667ae6
+
+In 8a6aa3574, `useListedModels` started reporting each provider's listing error, and stopped showing the models it read before once a later read fails. When the listing fails, the picker shows one row in place of the connector's models: its label is the provider's name, and its description is the server's error, for example "The local server at http://127.0.0.1:11555 isn't answering. Start it, then send your message again."
+
+In d06667ae6 the row became enabled. The picker's rows scroll a long description into view only when enabled (`MarqueeLabel` skips `aria-disabled` rows), and disabled, the reason was cut off at the address. Choosing the row opens Settings → Providers.
+
+Test: "says why a local server's models are missing once it stops answering" (`apps/ui/src/features/composer/chat-model-picker.test.tsx`). The picker lists the models once; the server stops; the picker is reopened without a reload. The test expects the reason row, no stale model, and provider settings opening when the row is chosen. It fails on the previous picker.
+
+Observed in `studio ui` in light and dark, with Ollama stopped and the picker reopened without reloading: `3-implementation/notes/studio-ui.txt`, `studio-ui-picker-error-light.png` and `studio-ui-picker-error-dark.png`.
+
+### 2. Embedding-only models are offered as chat models: owned by spec-producer
+
+spec-requirement-7 has the picker and `/model` "offer every model the local server lists". The spec's "Considered and not required" rejects leaving out the models a server can't chat with, because "`/v1/models` gives only ids".
+
+The connector now learns this from Ollama's `/api/show` and LM Studio's `/api/v1/models` (design-doc-decision-7). I carried your LM Studio observation, and reviewer-astra's case of a server whose every model is embedding-only, to the spec's owner in `threads/2-implementer-spec-producer-spec.md`.
+
+### 3. In the terminal, a mistyped address traps the user: changed in b4b786335
+
+From 07fa79554, a form of several fields is checked once every field is entered. When connecting fails, the CLI prints the rejection and asks for every field again, so the address can be corrected.
+
+b4b786335 keeps the earlier behavior for a form of one field, such as an API key: the rejection still shows as that prompt's error. Asking every form again had made `apps/cli/ai/tests/auth.test.ts`'s rejected-key case, whose key is always rejected, loop until the heap ran out.
+
+Test: `apps/cli/lib/tests/providers.test.ts` connects Local LLM through `connectInTerminal` with real config writes. A mistyped address is rejected, the right address with an empty optional key connects, the stored config has no key, and the key prompt says it's optional. It fails on the previous form.
+
+Observed in a real terminal (`3-implementation/notes/connect-retry.txt`): "No local server answered at 127.0.0.1:11999…", the address asked again, then "Connected Local LLM."
+
+### 4. Scope: the AI panel changes for every provider: owned by design-doc-producer
+
+design-doc-decision-3 decides both changes for every provider: the row's summary, and the secret field's placeholder. It rejects showing the summary only on the connector's row, because surfaces must not branch on a provider id (providers.md, principle 2), and its trade-offs name the Anthropic, OpenAI, Gemini, ChatGPT and Copilot rows. I carried your finding to its owner in `threads/3-implementer-design-doc-producer-design-doc.md`.
+
+### 5. More than the issue needs: remembering the model chosen last: owned by spec-producer
+
+spec-requirement-11 requires that "a new chat on the connector starts on the local model the person chose most recently on it". I carried your finding, including what it costs in the code, to the spec's owner in `threads/2-implementer-spec-producer-spec.md`.
+
+### 5, related. `AccountDetails.model` documented as general: changed in 2f2e1624c
+
+The comment now says it's the model new chats on the account start on "for a provider whose models a server the user runs lists, which has no default of its own". That's how `getDefaultAiModel` reads it, and design-doc-decision-6 scopes it to such providers. Built-in providers' callers don't pass the account, so honoring the field for them would apply it on some paths and not others.
+
+### 6. `getDefaultAiModel( 'local-llm' )` without an account returns `'fast'`: stands
+
+A render path reaches it with no account:
+
+- The session view resolves a new chat's default model during render, for the site draft's `provider` (`apps/ui/src/features/chats/session-view/index.tsx:152` and `:160`).
+- A site draft keeps its `provider` (`apps/ui/src/data/queries/use-site-chat-draft.ts:8`), and nothing clears it when that provider is disconnected.
+- Disconnecting also clears the remembered model.
+
+So after picking a local model in a new chat and then disconnecting Local LLM in Settings, `getDefaultAiModel( 'local-llm' )` runs with no account and no remembered model. A throw there would throw during the chat view's render.
+
+The fallback is never used as a local model. `resolveSessionModelForProvider` keeps a recorded model only when `servesAiModel` says the provider serves it. The hosts' session-model and provider-pin handlers reject a model the provider doesn't serve. `studio code` resolves the model again after `/connect`. The doc comment on `getDefaultAiModel` states the fallback.
+
+### 7. `/model` repeats the name as its description: changed in 54b80a06f
+
+A local model's option now has no description; its label is already the server's name for it.
+
+Test: "offers the models a local server lists by their names, and remembers the pick" (`apps/cli/ai/tests/slash-commands.test.ts`). It fails on the previous `/model`. Observed in `studio code` (`3-implementation/notes/connect-retry.txt`): `/model` lists `qwen3-vl:2b (current)`, `all-minilm:latest`, `gemma3:270m` and `qwen3:0.6b`, with no line under them.
+
+### 8. The composer's image check can misfire: changed in 5d842973b
+
+At send, the composer reads whether a local model reads images from the listing as last read. When nothing has read it yet, it reads it then, and the send waits for it, holding `sending` so a second Enter can't send twice. When the server doesn't answer, the composer keeps the draft and shows the server's reason instead of "Choose a model that supports images…".
+
+Tests (`apps/ui/src/features/composer/composer.test.tsx`):
+
+- The two cases for a local model now press Enter before the server has said what the model reads.
+- A new case covers a server that doesn't answer.
+
+The image-model case and the new case fail on the previous composer.
+
+Observed in `studio ui` (`3-implementation/notes/studio-ui.txt`):
+
+- **Server stopped:** the composer shows "The local server at http://127.0.0.1:11555 isn't answering. Start it, then send your message again" (`studio-ui-composer-down-light.png` and `-dark.png`).
+- **Server running:** `qwen3:0.6b` holds the image back, and `qwen3-vl:2b` sends it right after being picked.
+
+### 9. `--json` output shows an internal error text: stands
+
+The intermediate assistant message has to carry a text pi reads as an overflow, or pi wouldn't compact and retry. design-doc-decision-9 rejects wording the overflow in `rewriteError` for that reason.
+
+No Studio surface shows that text:
+
+- The terminal shows an assistant message's error only from a final `agent_end` (`apps/cli/ai/ui.ts:1964`).
+- The app's transcript shows a turn's error from `studio.turn_closed` (`apps/ui/src/features/chats/session-view/conversation/transcript-items.ts:328`). That entry takes the error of the turn's last final `agent_end` (`apps/cli/commands/ai/index.ts:721`).
+
+Since 3bb3dc951, the `agent_end` that carries the internal text is also marked not final, so a `--json` reader that follows `willRetry`, as Studio's own do, sees only the final words. On the built-in providers, the intermediate events carry the server's raw overflow text in the same way.
+
+### 10. `REPLY_TOKENS = 4096 + 1024`: changed in 7c4f06bc6
+
+It's now `4096 + MIN_ANSWER_TOKENS`, imported from pi as `context-window.ts` does. pi doesn't export its 4,096-token safety margin, and the comment says so.
+
+### 11. `withOverflowWords` clears every overflow `compaction_end` error: changed in 3bb3dc951
+
+A turn whose overflow compaction fails for a reason other than the overflow now ends with that failure. The mechanism is described in my answer to reviewer-astra's finding 2, in `threads/1-reviewer-astra-implementer-implementation.md`.
+
+Your case, observed (`3-implementation/notes/summary-fails.txt`): the server stopped answering while compacting, and the turn ended with "Context overflow recovery failed: Turn prefix summarization failed: The local server at http://127.0.0.1:11556 isn't answering. Start it, then send your message again." It was the same in the terminal and in the session's `studio.turn_closed`.
+
+### 12. Manage reopens with an empty address field: owned by design-doc-producer
+
+The form gets nothing from the account except its summary. design-doc-decision-3 rejected a value per form field in `AccountDetails` as "a new contract for a single placeholder". I carried the finding to its owner in `threads/3-implementer-design-doc-producer-design-doc.md`.
+
+### 13. One server at a time: changed in 1408b70ea
+
+The spec's "Considered and not required" leaves several servers at once out of the first version. The user docs' Local LLM entry now says: "Studio connects to one server at a time: to switch, connect again with the other server's address." Connecting again to another server is observed in `3-implementation/notes/lmstudio.txt`.
+
+### 14. Test gaps: changed in 54b80a06f
+
+`/model` on a local server is tested in 54b80a06f (see 7). The optional field in `fillForm` is tested in 07fa79554 (see 3), which expects the key prompt to be marked optional and an empty key to connect.
+
+### 15. `docs/design-docs/providers.md`: the new table row isn't padded: changed in b4f76c3f6
+
+The row now fits the table's columns. Its Account cell reads "Server address, optional key".
