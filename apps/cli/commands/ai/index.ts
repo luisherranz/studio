@@ -244,6 +244,8 @@ export async function runCommand( options: {
 			? resumeContext.model
 			: undefined;
 	let currentModel: AiModelId = recordedModel ?? ( await readDefaultModel( currentProvider ) );
+	// The chat runs on the provider's default until it records a model, from a turn or a pick.
+	let onDefaultModel = ! recordedModel;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -304,6 +306,7 @@ export async function runCommand( options: {
 						const sessionModel = readRecordedSessionModel( sm.getEntries() );
 						if ( sessionModel && servesAiModel( currentProvider, sessionModel ) ) {
 							quotaDefaultApplicable = false;
+							onDefaultModel = false;
 							currentModel = sessionModel;
 							ui.currentModel = currentModel;
 						}
@@ -394,8 +397,13 @@ export async function runCommand( options: {
 		} finally {
 			ui.start();
 		}
-		// Until the provider connects, the chat holds a model it doesn't serve.
-		if ( provider === currentProvider && ! servesAiModel( currentProvider, currentModel ) ) {
+		// Until the provider connects, the chat holds a model it doesn't serve. A server connected anew
+		// may not have the default the chat started on.
+		if (
+			provider === currentProvider &&
+			( ! servesAiModel( currentProvider, currentModel ) ||
+				( onDefaultModel && getProvider( currentProvider ).ai?.userServer ) )
+		) {
 			currentModel = await readDefaultModel( currentProvider );
 			ui.currentModel = currentModel;
 		}
@@ -652,6 +660,7 @@ export async function runCommand( options: {
 		}
 
 		await persistSessionContext();
+		onDefaultModel = false;
 
 		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
 		// the provider, model and outcome together. `channel` separates them.
@@ -841,6 +850,7 @@ export async function runCommand( options: {
 			currentModel = value;
 			// An explicit pick wins over the pending quota-based default.
 			quotaDefaultApplicable = false;
+			onDefaultModel = false;
 		},
 		get currentProvider() {
 			return currentProvider;
