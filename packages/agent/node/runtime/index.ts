@@ -7,6 +7,7 @@ import {
 	type CredentialInfo,
 	type CredentialStore,
 } from '@earendil-works/pi-ai';
+import { MIN_ANSWER_TOKENS } from '@earendil-works/pi-ai/api/simple-options';
 import { estimateTextTokens } from '@earendil-works/pi-ai/utils/estimate';
 import {
 	createAgentSession,
@@ -61,8 +62,9 @@ const STUDIO_COMPACTION_SETTINGS = {
 	keepRecentTokens: 20_000,
 };
 
-// What pi leaves out of the window for the reply: its safety margin and the smallest reply.
-const REPLY_TOKENS = 4096 + 1024;
+// What pi leaves out of the window for the reply: its safety margin, which it doesn't export, and
+// the smallest reply.
+const REPLY_TOKENS = 4096 + MIN_ANSWER_TOKENS;
 
 /**
  * The compaction settings for the connection, given the tokens its system prompt and tools take.
