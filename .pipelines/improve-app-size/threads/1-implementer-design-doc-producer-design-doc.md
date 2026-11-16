@@ -30,3 +30,41 @@ The decision states that a removed locale "mapped to English anyway". I tested E
 I couldn't observe Windows from this machine. Squirrel's nupkg and the Store's appx can't carry symlinks.
 
 The decision-4 locale filtering is not built yet, so the rest of the change doesn't depend on how this is resolved. Which treatment of a removed locale should the packaging apply on each platform?
+
+## design-doc-producer — bd346affbe72eccdcf557245385a87e83a6eb5eb
+
+### Finding 1: changed in bd346affb
+
+I reproduced it with your probe on the macOS arm64 package (Electron 44.9.1): `2-design-doc/design-doc/locale-pack-probes.txt`.
+
+| Packs | `app.getLocale()` | Validation message |
+|---|---|---|
+| Framework's `fi*.lproj` removed | `fi` | `""` |
+| Framework's `fi*.lproj` removed, `Contents/Resources/fi.lproj` too, system `(fi, de)` | `de` | — |
+| Framework's `fi*.lproj` linked to `en.lproj/locale.pak`, system `(fi)` or `(fi, de)` | `fi` | `"Please fill out this field."` |
+
+I also checked Danish. Removing `da` empties the strings. Linking it keeps `da` with English strings, both for `(da)` and for `(da, es)`. design-doc-assumption-1 is false, so I removed it.
+
+design-doc-decision-4 no longer removes packs. All 55 locales keep a pack at the baseline's path:
+
+- A locale that Studio's matcher maps to a translation, and English itself, keeps its own pack.
+- Each of the other 28 locales carries the English pack's content. On macOS that includes the gendered variants.
+
+Chromium's choice of app locale, `app.getLocale()`, Studio's language and the renderer's default locale stay as in the baseline, and Chromium's own strings are English for those 28. On macOS and Linux the pack is a symbolic link to the English pack, so the 30.1 MB macOS saving stands. Interfaces, Verification and Risks now say this. The new system-language end-to-end test also proves that Chromium's strings are never empty. A new inspection proves that a signed and notarized macOS build with the links verifies and passes Gatekeeper. design-doc-assumption-5 covers signing and installs until that runs.
+
+### Finding 2: changed in bd346affb
+
+I reproduced it with your Linux probe in `node:24-bookworm`. With `LANG=fi_FI.UTF-8 LANGUAGE=fi:de` and `fi.pak` removed, `app.getLocale()` is `de`. With `fi.pak` linked to `en-US.pak` it is `fi`, with English strings (`2-design-doc/design-doc/locale-pack-probes.txt`).
+
+### Which treatment the packaging applies on each platform: changed in bd346affb
+
+The same treatment on every platform: each locale Studio maps to English carries the English pack's content in place of its own.
+
+- **macOS and Linux:** the pack is a symbolic link to the English pack: `en.lproj/locale.pak` on macOS, `en-US.pak` on Linux. Both formats carry links:
+  - The macOS update zip holds the bundle's 14 links.
+  - The deb's staging copy (fs-extra 9.1.0 `copy`, called by electron-installer-common `copyApplication`) recreates links with their original targets.
+  
+  Evidence: `2-design-doc/design-doc/locale-pack-aliases.txt`.
+- **Windows:** the pack is a copy of `en-US.pak`, because the setup program, update package and Store package can't carry links. Measured on Electron 44.9.1 win32-x64: the 28 packs are 30,280,090 bytes, and 28 copies of `en-US.pak` (586,582 bytes each) take 16,424,296. That still saves 13,855,794 bytes installed and 1,435,149 with deflate. Keeping every pack on Windows would save nothing and leave Windows with different Chromium strings from the other platforms.
+
+Windows itself isn't observed. The copies keep all 55 pack files present, as in the baseline, so Chromium keeps its choice if it chooses from the files present. That's design-doc-assumption-4, which the new system-language end-to-end test on Windows confirms.
