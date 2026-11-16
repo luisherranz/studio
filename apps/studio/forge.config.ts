@@ -1,12 +1,18 @@
 import { execFile } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { pipeline } from 'stream/promises';
+import { pathToFileURL } from 'url';
+import { promisify } from 'util';
+import zlib from 'zlib';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { globSync } from 'glob';
+import * as tar from 'tar';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
 import { dmgLayout } from '../../scripts/dmg-layout';
@@ -19,6 +25,82 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 // The name users read. productName stays "Studio" because it names the app
 // bundle, executable, DMG and log and data folders that releases rely on.
 const displayName = 'WordPress Studio';
+
+const execFileAsync = promisify( execFile );
+
+// The signing identity @electron/osx-sign picks for the app: the first valid Developer ID
+// Application identity in the keychain search list.
+async function findDeveloperIdIdentity(): Promise< string | undefined > {
+	const { stdout } = await execFileAsync( 'security', [ 'find-identity', '-v' ] );
+	return /^\s*\d+\)\s+([0-9A-F]{40})\s+"Developer ID Application:/m.exec( stdout )?.[ 1 ];
+}
+
+function isMachO( filePath: string ): boolean {
+	const fd = fs.openSync( filePath, 'r' );
+	try {
+		const header = Buffer.alloc( 4 );
+		if ( fs.readSync( fd, header, 0, 4, 0 ) !== 4 ) {
+			return false;
+		}
+		return [ 0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe ].includes(
+			header.readUInt32BE( 0 )
+		);
+	} finally {
+		fs.closeSync( fd );
+	}
+}
+
+// The app's signing can't reach into the PHP archive, so the packaging signs PHP's executables
+// before compressing them, the way the app's signing signs the app's own: with the Developer ID
+// identity, the hardened runtime and @electron/osx-sign's default entitlements on macOS, and with
+// the Windows signing hook. Builds without a signing identity leave them as downloaded.
+async function signPhpPackage( packageDir: string, platform: string ) {
+	const files = globSync( '**/*', { cwd: packageDir, absolute: true, nodir: true } );
+	if ( platform === 'darwin' ) {
+		const identity = await findDeveloperIdIdentity();
+		if ( ! identity ) {
+			console.log( 'No Developer ID Application identity found, skipping PHP signing ...' );
+			return;
+		}
+		for ( const file of files.filter( isMachO ) ) {
+			await execFileAsync( 'codesign', [
+				'--sign',
+				identity,
+				'--force',
+				'--timestamp',
+				'--options',
+				'runtime',
+				'--entitlements',
+				path.join( __dirname, 'entitlements', 'php.plist' ),
+				file,
+			] );
+		}
+	} else if ( platform === 'win32' && windowsSign?.hookModulePath ) {
+		const { default: signFile } = ( await import(
+			pathToFileURL( windowsSign.hookModulePath ).href
+		) ) as { default: ( file: string ) => void | Promise< void > };
+		const portableExecutables = files.filter( ( candidate ) =>
+			/\.(exe|dll|sys|efi|scr|node)$/i.test( candidate )
+		);
+		for ( const file of portableExecutables ) {
+			await signFile( file );
+		}
+	}
+}
+
+// A brotli-compressed tarball, which the CLI unpacks on first run with what it already ships.
+async function compressPhpPackage( packageDir: string, archivePath: string ) {
+	await pipeline(
+		tar.c( { cwd: packageDir, portable: true }, fs.readdirSync( packageDir ) ),
+		zlib.createBrotliCompress( {
+			params: {
+				[ zlib.constants.BROTLI_PARAM_QUALITY ]: zlib.constants.BROTLI_MAX_QUALITY,
+				[ zlib.constants.BROTLI_PARAM_LGWIN ]: zlib.constants.BROTLI_MAX_WINDOW_BITS,
+			},
+		} ),
+		fs.createWriteStream( archivePath )
+	);
+}
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -336,21 +418,36 @@ const config: ForgeConfig = {
 				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
 			);
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
-			await execAsync(
-				[
-					'node',
-					'--experimental-strip-types',
-					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
-					RecommendedPHPVersion,
-					platform,
-					arch,
-					'--install-root',
-					bundledPhpBinaryRoot,
-				],
-				{
-					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
-				}
-			);
+			const phpDownloadRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-package-' ) );
+			try {
+				await execAsync(
+					[
+						'node',
+						'--experimental-strip-types',
+						path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
+						RecommendedPHPVersion,
+						platform,
+						arch,
+						'--install-root',
+						phpDownloadRoot,
+					],
+					{
+						STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
+					}
+				);
+				// The CLI unpacks the package on first run into `<config>/php-bin/<package-id>/`.
+				const [ packageId ] = fs.readdirSync( phpDownloadRoot );
+				const packageDir = path.join( phpDownloadRoot, packageId );
+				await signPhpPackage( packageDir, platform );
+				console.log( `Compressing PHP package ${ packageId } ...` );
+				fs.mkdirSync( bundledPhpBinaryRoot );
+				await compressPhpPackage(
+					packageDir,
+					path.join( bundledPhpBinaryRoot, `${ packageId }.tar.br` )
+				);
+			} finally {
+				fs.rmSync( phpDownloadRoot, { recursive: true, force: true } );
+			}
 		},
 	},
 };
