@@ -1,0 +1,17 @@
+# HEAD requests against the public Apps CDN download links of Studio 2.2.0 (build 25905), 2026-11-16T10:25Z
+mac-intel full-install -> 200 347146186 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-darwin-x64-v2.2.0.dmg
+mac-intel update -> 200 371967470 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-x64-v2.2.0.zip
+mac-silicon full-install -> 200 337444773 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-darwin-arm64-v2.2.0.dmg
+mac-silicon update -> 200 362018385 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-arm64-v2.2.0.zip
+windows-x64 full-install -> 200 388692784 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-setup-x64-v2.2.0.exe
+windows-x64 update -> 200 399122182 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-update-x64-v2.2.0-full.nupkg
+windows-arm64 full-install -> 200 380260144 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-setup-arm64-v2.2.0.exe
+windows-arm64 update -> 200 390678164 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-update-arm64-v2.2.0-full.nupkg
+linux-x64 full-install -> 404  
+linux-x64 update -> 200 231553424 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-x64-v2.2.0.deb
+linux-arm64 full-install -> 404  
+linux-arm64 update -> 200 223397436 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-arm64-v2.2.0.deb
+microsoft-store-x64 full-install -> 200 435261980 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-2.2.0.0-unsigned-x64-v2.2.0.appx
+microsoft-store-x64 update -> 404  
+microsoft-store-arm64 full-install -> 200 426982299 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-2.2.0.0-unsigned-arm64-v2.2.0.appx
+microsoft-store-arm64 update -> 404  
