@@ -1,0 +1,14 @@
+# Electron 44.9.1 win32-x64 locale packs (locales/*.pak from electron-v44.9.1-win32-x64.zip, GitHub release download)
+# Command: sh scripts/win-locale-cost.sh <unzipped folder>; 'unmapped' = the 28 locales Studio's matcher maps to English (electron-locale-match.txt)
+packs=55 total=50643459 en-US.pak=586582
+unmapped packs=28 bytes=30280090 zip6=7011821 xz6=4460016
+replaced by en-US copies: bytes=16424296 zip6=5576672 xz6=146076
+net saving with copies: bytes=13855794 zip6=1435149
+
+# macOS en.lproj/locale.pak 584,413 bytes; fi.lproj/locale.pak 651,794; fi_FEMININE.lproj/locale.pak 18 (macOS arm64 package, Electron 44.9.1)
+
+# Symlinks in the package formats
+zipinfo <macOS arm64 update zip in apps/studio/out> | grep -c '^l' -> 14 (find Studio.app -type l -> 14), e.g.:
+lrwxr-xr-x  3.0 unx       35 bx stor 26-Nov-16 13:02 Studio.app/Contents/Frameworks/Electron Framework.framework/Electron Framework
+lrwxr-xr-x  3.0 unx       26 bx stor 26-Nov-16 13:02 Studio.app/Contents/Frameworks/Electron Framework.framework/Resources
+deb: electron-installer-common copyApplication uses fs-extra 9.1.0 copy, which lstat()s and recreates symlinks with their original target unless dereference is set (node_modules/electron-installer-common/src/installer.js:81; fs-extra lib/copy/copy.js:66,189-228)

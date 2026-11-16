@@ -1,0 +1,29 @@
+# Reproduction of the implementer's macOS locale probe (3-implementation/notes/scripts/mac-locale-probe.sh) on the macOS arm64 package in apps/studio/out (the change's build before locale filtering; the probe replaces app.asar, so only its Electron 44.9.1 framework matters)
+# Command: sh scripts/repro-mac-locale.sh <mac-locale-probe.sh> <Studio.app> <workdir>
+# changes: <l> removes the framework's <l>*.lproj; app:<l> removes Contents/Resources/<l>.lproj; link:<l> replaces the framework's <l>*.lproj/locale.pak with a symlink to ../en.lproj/locale.pak
+lang=(fi) changes=none: getLocale=fi preferred=fi validationMessage="Täytä tämä kenttä."
+lang=(fi) changes=fi: getLocale=fi preferred=fi validationMessage=""
+lang=(fi,de) changes=none: getLocale=fi preferred=fi,de validationMessage="Täytä tämä kenttä."
+lang=(fi,de) changes=fi: getLocale=fi preferred=fi,de validationMessage=""
+lang=(fi,de) changes=fi app:fi: getLocale=de preferred=fi,de validationMessage="Fülle dieses Feld aus."
+lang=(fi) changes=link:fi: getLocale=fi preferred=fi validationMessage="Please fill out this field."
+lang=(fi,de) changes=link:fi: getLocale=fi preferred=fi,de validationMessage="Please fill out this field."
+lang=(da) changes=none: getLocale=da preferred=da validationMessage="Udfyld dette felt."
+lang=(da) changes=da: getLocale=da preferred=da validationMessage=""
+lang=(da,es) changes=da: getLocale=da preferred=da,es validationMessage=""
+lang=(da,es) changes=link:da: getLocale=da preferred=da,es validationMessage="Please fill out this field."
+lang=(es-MX) changes=none: getLocale=es-419 preferred=es-MX validationMessage="Completa este campo"
+lang=(es-MX) changes=es: getLocale=es-419 preferred=es-MX validationMessage="Completa este campo"
+
+# Reproduction of the implementer's Linux probe (3-implementation/notes/scripts/linux-locale-probe.sh), Electron 44.9.1 linux-arm64
+# Command: docker run --rm -v <folder with the script>:/probe:ro node:24-bookworm sh /probe/linux-locale-probe.sh
+LANG=fi_FI.UTF-8 LANGUAGE=unset removed=none: getLocale=fi validationMessage="Täytä tämä kenttä."
+LANG=fi_FI.UTF-8 LANGUAGE=unset removed=fi: getLocale=en-US validationMessage="Please fill out this field."
+LANG=fi_FI.UTF-8 LANGUAGE=fi:de removed=none: getLocale=fi validationMessage="Täytä tämä kenttä."
+LANG=fi_FI.UTF-8 LANGUAGE=fi:de removed=fi: getLocale=de validationMessage="Fülle dieses Feld aus."
+LANG=de_DE.UTF-8 LANGUAGE=unset removed=fi: getLocale=de validationMessage="Fülle dieses Feld aus."
+LANG=ca_ES.UTF-8 LANGUAGE=unset removed=none: getLocale=ca validationMessage="Empleneu aquest camp."
+LANG=en_US.UTF-8 LANGUAGE=unset removed=fi: getLocale=en-US validationMessage="Please fill out this field."
+LANG=fi_FI.UTF-8 LANGUAGE=unset removed=link:fi: getLocale=fi validationMessage="Please fill out this field."
+LANG=fi_FI.UTF-8 LANGUAGE=fi:de removed=link:fi: getLocale=fi validationMessage="Please fill out this field."
+55

@@ -6,19 +6,25 @@ A large share of Studio's installation is bytes that no code path reads, or read
 
 - source maps and TypeScript declarations in the CLI's dependencies: 64.7 MB
 - build tools that `@sentry/node` 11 pulls into the app archive: 22.4 MB, plus 6.5 MB of TypeScript declarations there
-- Chromium locale packs for languages Studio never resolves to: 30.1 MB
+- Chromium locale packs for languages Studio maps to English: 30.1 MB
 - the default PHP package, shipped unpacked and copied unchanged into the config folder on first run: 71.5 MB
 
 The Windows installer builds also carry a 57.5 MB launcher that only the Microsoft Store build uses. The DMG is compressed with zlib.
 
-The change is packaging plus one CLI migration. Studio ships only the files its runtime reads, keeps the PHP package compressed until first run unpacks it where it lands today, keeps the Store-only launcher in the Store package, and compresses the DMG with LZMA. No program, runtime, launcher, config-folder layout or update payload format changes, so every feature runs the same code on the same inputs as the baseline. On macOS Apple silicon the removals come to about 177 MB of the installation (−21%) and about 41 MB of the 352 MB update zip. LZMA alone cuts the DMG from 336.8 MB to 267.1 MB before any content is removed.
+The change is packaging plus one CLI migration. Studio:
+
+- ships only the files its runtime reads
+- gives the locales it maps to English the English locale pack
+- keeps the PHP package compressed until first run unpacks it where it lands today
+- keeps the Store-only launcher in the Store package
+- compresses the DMG with LZMA No program, runtime, launcher, config-folder layout or update payload format changes, so every feature runs the same code on the same inputs as the baseline. On macOS Apple silicon the removals come to about 177 MB of the installation (−21%) and about 41 MB of the 352 MB update zip. LZMA alone cuts the DMG from 336.8 MB to 267.1 MB before any content is removed.
 
 ## Architecture
 
 Modified components:
 
 - **Desktop packaging** (`apps/studio/forge.config.ts`, its prePackage hook and packager options) decides what the installation contains. It takes on four new responsibilities:
-  - filtering Electron's locale packs (design-doc-decision-4)
+  - giving the Electron locales Studio maps to English the English pack (design-doc-decision-4)
   - leaving build tools and type declarations out of `app.asar` (design-doc-decision-3)
   - producing the signed, compressed PHP archive from the PHP package it downloads today (design-doc-decision-6)
   - keeping the Store-only launcher out of the installer artifacts (design-doc-decision-5)
@@ -29,7 +35,7 @@ Modified components:
 
 Untouched but relevant:
 
-- **Studio's language selection** (`apps/studio/src/lib/locale-node.ts` `getSupportedLocale`, `packages/common/lib/locale.ts` `supportedLocales`, `packages/common/translations/`) is the source of truth that design-doc-decision-4 derives its keep set from.
+- **Studio's language selection** (`apps/studio/src/lib/locale-node.ts` `getSupportedLocale`, `packages/common/lib/locale.ts` `supportedLocales`, `packages/common/translations/`) is the source of truth design-doc-decision-4 uses to decide which locales keep their own packs.
 - **The PHP runtime after install**: `apps/cli/lib/native-php/config.ts` writes `php.ini` and the CA bundle beside the installed binary, and `apps/cli/lib/dependency-management/php-binary.ts` handles on-demand versions and the download fallback. Both read `<config>/php-bin/<package-id>/` as today.
 - **Launchers and runtime references** keep naming the bundled Node:
   - the launchers in `apps/studio/bin/`
@@ -44,7 +50,7 @@ Build data flow:
 1. Install dependencies.
 2. CLI packaged build, keeping runtime files only.
 3. Desktop prePackage: fetch the PHP package, sign its executables with the release identity, compress it into one archive, and build the Store launcher.
-4. Packager: build the asar with its exclusions and filter the locale packs.
+4. Packager: build the asar with its exclusions, and give the locales Studio maps to English the English pack.
 5. Platform signing.
 6. Makers: zip; Squirrel, without the Store launcher; deb.
 7. DMG, with LZMA.
@@ -57,7 +63,7 @@ Post-change coherence:
 - **Narrowed contracts and their consumers:**
   - The CLI's packaged `node_modules` loses `*.map` and `*.d.ts`/`*.d.mts`/`*.d.cts`. No runtime code reads declarations. Only Playwright's stack-trace rewriting reads maps.
   - `app.asar` no longer resolves `@sentry/node`'s `./vite`, `./rollup`, `./webpack` and `./esbuild` entry points. The main process requires only `@sentry/electron/main`.
-  - Removed locale packs make Chromium fall back to `en-US`. `getSupportedLocale` already maps every removed locale to English. The renderer's default number formatting also follows `en-US` for those languages, and has one consumer: the character count in `apps/ui/src/features/settings/settings-view/instructions-editor.tsx`.
+  - The packs of locales Studio maps to English now carry English strings. Chromium's choice of app locale, and with it `app.getLocale()`, `getSupportedLocale` and the renderer's default locale, is unchanged.
   - The installer builds lose `studio-cli.exe`. Its only consumer is the Store alias.
   - The installation no longer holds an unpacked PHP. Its only consumer is migration 06.
 - **Generality left without a purpose:** the prePackage step that unpacks the PHP package into `apps/studio/php-bin` exists only to feed the installation. It now feeds the archive.
@@ -148,43 +154,52 @@ The main process requires `@sentry/electron/main`, which reaches none of them.
 - observed: the dependency chain runs `@sentry/electron` 8.4.0 → `@sentry/node` 11.10.0 → `@sentry/bundler-plugins` → `sentry` 0.45.0 and `oxc-parser`. `@sentry/bundler-plugins` is referenced only from `@sentry/node`'s `bundler-plugin/{vite,rollup,webpack,esbuild}.js` (`design-doc/baseline-macos-arm64-composition.txt`).
 - observed: `dist/main/index.js` requires `@sentry/electron/main` and no other `@sentry` module (grep of its `require` calls).
 
-design-doc-decision-4: Electron locale packs ship only for languages Studio can resolve to
+design-doc-decision-4: Electron locales that Studio maps to English carry the English pack
 
 **Serves:** spec-requirement-1, spec-requirement-2, spec-requirement-3, spec-requirement-6, spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-3, spec-acceptance-criterion-7
 
-**Decision:** The Desktop packaging keeps Chromium's locale packs for English and for every Electron locale that Studio's language matcher maps to a Studio translation, and removes the rest. The matcher is `getSupportedLocale`, which calls `match( [ locale ], supportedLocales, 'en' )`. The packs live in:
+**Decision:** Every one of the 55 Electron locales keeps a pack at its usual path:
 
-- macOS: `Electron Framework.framework/Resources/<locale>[_<gender>].lproj`
+- macOS: `Electron Framework.framework/Resources/<locale>[_<gender>].lproj/locale.pak`
 - Windows and Linux: `locales/<locale>.pak`
 
-The keep set is derived at packaging time from the same matcher and translation list the app uses, so adding a translation keeps its packs. On macOS the app bundle's own `Contents/Resources/*.lproj` folders stay, so macOS chooses the app's localization as it does today.
+The packaging sorts each locale with Studio's language matcher, `getSupportedLocale`, which calls `match( [ locale ], supportedLocales, 'en' )`:
 
-The result for each kind of locale:
+- **Locales the matcher maps to a Studio translation, and English itself:** they keep their own packs.
+- **Every other locale:** it carries the English pack's content in place of its own. On macOS this includes the gendered variants. On macOS and Linux, whose package formats carry symbolic links, the pack is a link to the English pack. On Windows, whose setup program, update package and Store package can't, it is a copy of the English pack.
 
-- **Kept locale:** `app.getLocale()` returns what it returns today.
-- **Removed locale:** Chromium falls back to `en-US`, which the matcher maps to English. The removed locale mapped to English anyway.
-- **Settings → Language:** doesn't depend on the packs.
+The packaging derives this split from the same matcher and translation list the app uses, so adding a translation keeps that language's packs. The app bundle's own `Contents/Resources/*.lproj` folders on macOS are unchanged.
+
+Every locale keeps a pack, so Chromium chooses the same app locale it chooses today on every platform:
+
+- `app.getLocale()` and the renderer's default locale stay as they are today.
+- Studio's language, from the system language or from Settings → Language, is unchanged.
+- For a locale that carries the English pack, Chromium's own strings are in English.
 
 **Alternatives:**
 
-- **Keep the packs whose language subtag matches a Studio translation.** This drops Afrikaans, Catalan and Malay, which the matcher maps to Dutch, Spanish and Indonesian, so those users would get English.
-- **Remove the macOS app bundle's `.lproj` folders too.** They hold only the localized display name, written by the packaging's `afterCopyExtraResources` hook, and take no measurable space. Removing them saves nothing, and would change which localization macOS picks for Studio.
+- **Remove the packs of locales the matcher maps to English.** This is what was measured as saving the most. Rejected because Chromium then behaves differently per platform, and none of the behaviors match the baseline:
+  - On macOS it keeps the locale and shows empty strings.
+  - On Linux it moves to the next language the user lists, and that can change Studio's language. With `LANGUAGE=fi:de` and the Finnish pack removed, Chromium picks German where the baseline shows English.
+  - Windows wasn't observed, and its update package can't carry links.
+- **On macOS, also remove the app bundle's own `.lproj` folder.** Chromium then falls back to the next language the user lists, so `(fi, de)` gives German where the baseline gives English.
+- **Keep every pack on Windows, where links aren't possible.** Windows would keep localized Chromium strings and save nothing. Rejected: copies of the English pack still take 13.9 MB off the installation and give every platform the same behavior.
+- **Keep packs by the language subtag of Studio's translations.** This treats Afrikaans, Catalan and Malay as English, but the matcher maps them to Dutch, Spanish and Indonesian, so those users' Chromium strings would leave their language.
 - **Keep every pack:** nothing is saved.
 
-**Trade-offs:** For users whose system language Studio isn't translated into, these follow `en-US` instead of their language:
-
-- Chromium's own strings, such as form validation messages
-- the renderer's default number formatting
-
-Studio's own interface was already in English for them. The saving is smaller on Linux, whose 55 packs take 8,900 KiB against 49,572 KiB on Windows.
+**Trade-offs:** For users whose system language is one of the 28 locales Studio maps to English, Chromium's own strings, such as form validation messages, are in English instead of their language. Studio's own interface was already English for them. Windows saves less than macOS and Linux, because each copy of the English pack takes 586,582 bytes.
 
 **Claims:**
 
 - observed: 25 of the 55 Electron 44.9.1 locales map to a translation: af, ar, ca, de, es, es-419, fr, he, hu, id, it, ja, ko, ms, nl, pl, pt-BR, pt-PT, ru, sv, tr, uk, vi, zh-CN and zh-TW (`design-doc/electron-locale-match.txt`).
-- observed: on macOS Apple silicon the removed packs are 30,113,308 bytes; 7.0 MB with zip -6 and 4.5 MB with xz -6 (`design-doc/baseline-macos-arm64-composition.txt`, `design-doc/candidate-removals.txt`).
-- observed: Windows ships 49,572 KiB and Linux 8,900 KiB of locale packs, 55 of each (`1-spec/spec/nightly-2.3.0-dev166-installed-composition.txt`).
+- observed: on macOS Apple silicon the packs that become links are 30,113,308 bytes; 7.0 MB with zip -6 and 4.5 MB with xz -6 (`design-doc/baseline-macos-arm64-composition.txt`, `design-doc/candidate-removals.txt`).
+- observed: on Windows x64 these 28 locales' packs are 30,280,090 bytes. Replaced by copies of `en-US.pak`, they take 16,424,296, which saves 13,855,794 bytes installed and 1,435,149 with zip -6 (`design-doc/locale-pack-aliases.txt`).
+- observed: Linux ships 8,900 KiB of locale packs (`1-spec/spec/nightly-2.3.0-dev166-installed-composition.txt`).
+- observed: on macOS and Linux, a link to the English pack keeps `app.getLocale()` as in the baseline and gives English Chromium strings. Removing the pack empties them on macOS, and on Linux moves the choice to the next listed language. Removing the app bundle's `.lproj` on macOS does the same (`design-doc/locale-pack-probes.txt`, reproducing `3-implementation/notes/mac-locale-probe.txt` and `linux-locale-probe.txt`).
+- observed: the macOS update zip carries the bundle's 14 symbolic links. The deb's staging copy recreates links with their original targets (`design-doc/locale-pack-aliases.txt`).
 - observed: `app.getLocale()` is read only by `getSupportedLocale` and a startup log line (grep of `apps/studio/src`).
-- assumed: on macOS a removed framework pack makes `app.getLocale()` fall back to `en-US` (design-doc-assumption-1).
+- assumed: on Windows, Chromium's choice of app locale depends only on which locale packs exist, so the copies keep the baseline's choice (design-doc-assumption-4).
+- assumed: the macOS links pass signing and notarization and survive the DMG and Squirrel.Mac installs, and the deb's links survive its install (design-doc-assumption-5).
 
 design-doc-decision-5: The Store-only CLI launcher ships only in the Store package
 
@@ -281,7 +296,7 @@ Each artifact Studio publishes has the same layout as the baseline's, with these
   - `*.map`, as today
   - `*.d.ts`, `*.d.mts` or `*.d.cts`
   - `node_modules/sentry`, `node_modules/@sentry/bundler-plugins`, `node_modules/oxc-parser`, `node_modules/@oxc-parser/*` or `node_modules/@oxc-project/*`
-- **Electron locale packs:** a pack is present exactly when its locale is English or `getSupportedLocale`'s matcher maps it to a Studio translation. On macOS the app bundle's own `Contents/Resources/*.lproj` folders are unchanged.
+- **Electron locale packs:** all 55 locales keep a pack at the baseline's path. A locale that `getSupportedLocale`'s matcher maps to a Studio translation, and English itself, keeps its own pack. Every other locale's packs, including the macOS gendered variants, hold the English pack's content: a symbolic link to it on macOS and Linux, a copy on Windows. On macOS the app bundle's own `Contents/Resources/*.lproj` folders are unchanged.
 - **Default PHP:** the installation holds one archive of the default PHP package where `php-bin/<package-id>/` was. It unpacks to the files of that folder in the signed baseline installation.
 - **Windows setup program and update package:** no `resources/bin/studio-cli.exe`.
 - **Microsoft Store package:** `app\resources\bin\studio-cli.exe`, as today.
@@ -310,9 +325,10 @@ At build time:
 - existing test `tools/metrics/tests/app-size.test.ts` › "measure packaged app size" — spec-acceptance-criterion-1 — the packaged macOS Apple silicon installation (`appSizeMac`) is smaller than the baseline's.
 - end-to-end flow — spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-3, design-doc-decision-2, design-doc-decision-3, design-doc-decision-4, design-doc-decision-5, design-doc-decision-6, design-doc-decision-7 — on each of the six pairs, compared with the baseline packaged the same way, three things are smaller: the installed application, each download file, and the installation plus Studio's config folder after a site is created and started.
 - new test at the packaged-output boundary, run after each platform's CI packaging — design-doc-decision-2, design-doc-decision-3, design-doc-decision-4, design-doc-decision-5, design-doc-decision-6 — the output matches the composition contracts under Interfaces.
-- new test at the boundary of the locale keep-set derivation — design-doc-decision-4, spec-acceptance-criterion-7 — the keep set is English plus exactly the Electron locales Studio's matcher maps to a translation, whichever language that translation is in.
-- new test at the packaged-app boundary (end-to-end) — design-doc-decision-4, spec-acceptance-criterion-7 — Studio picks the same language from the system language as the baseline, both for languages whose packs are kept and for those whose packs were removed.
-- existing tests `apps/studio/e2e/localization.test.ts` › "applies a language, right-to-left included, and keeps it across a restart" and "created site language matches Studio language", on each platform's packaged build — spec-acceptance-criterion-5, spec-acceptance-criterion-7 — Settings → Language and the new site's language work with the filtered packs.
+- new test at the boundary of the locale split's derivation — design-doc-decision-4, spec-acceptance-criterion-7 — a locale keeps its own pack exactly when it is English or Studio's matcher maps it to a translation, whichever language that translation is in.
+- new test at the packaged-app boundary (end-to-end), on each platform — design-doc-decision-4, spec-acceptance-criterion-7 — whatever languages the system lists, Studio picks the same language and Chromium the same app locale as the baseline. For a locale that carries the English pack, Chromium's own strings are in English and never empty.
+- inspection — design-doc-decision-4 — a signed and notarized macOS release build with the linked packs passes code-signature verification and Gatekeeper.
+- existing tests `apps/studio/e2e/localization.test.ts` › "applies a language, right-to-left included, and keeps it across a restart" and "created site language matches Studio language", on each platform's packaged build — spec-acceptance-criterion-5, spec-acceptance-criterion-7 — Settings → Language and the new site's language work with the locales that carry the English pack.
 - existing tests `apps/cli/migrations/tests/06-install-bundled-default-php.test.ts` › "does not run when bundled PHP is unavailable", "does not replace an existing destination patch folder" and "keeps the folder another process installed first" — design-doc-decision-6 — the migration's run condition and race contract hold with the archive as the source.
 - new test at the migration-06 boundary — design-doc-decision-6 — from the bundled archive, the migration installs the default package into the config folder with the unpacked package's files and executable permission, and leaves no folder when unpacking fails.
 - inspection — design-doc-decision-6 — on signed macOS and Windows release builds, the PHP files the first run installs carry the same signatures as the baseline's installed copy: identity, hardened runtime and entitlements.
@@ -329,7 +345,8 @@ At build time:
 ## Risks
 
 - **Second Node runtime.** It stays as the largest removable item: 122.5 MB on macOS Apple silicon (design-doc-decision-1).
-- **Users whose system language Studio isn't translated into** see Chromium's built-in strings, and the renderer's default number formatting, in `en-US` instead of their language. Studio's interface was already English for them. This depends on design-doc-assumption-1 holding on macOS.
+- **Users whose system language is one of the 28 locales Studio maps to English** see Chromium's built-in strings in English instead of their language. Studio's interface was already English for them (design-doc-decision-4).
+- **Locale choice on Windows was not observed.** It keeps the baseline's choice only if Chromium chooses from the pack files present, which the copies keep identical (design-doc-assumption-4).
 - **The build-tool exclusion is a list of names.** A dependency upgrade can bring another build tool into the runtime tree, and only the size grows until the list follows (design-doc-decision-3).
 - **PHP signature parity depends on packaging signing PHP before archiving it.** A release build that skipped it would run an ad-hoc-signed PHP on macOS and an unsigned one on Windows for every user, not only for on-demand versions (design-doc-assumption-3).
 - **The deb gains about 0.5 MB from the PHP archive.** Its net decrease depends on the other removals on Linux, where the locale packs are already compressed (spec-assumption-1).
@@ -338,8 +355,10 @@ At build time:
 
 spec-assumption-1: Every installation and download can be made smaller than the baseline's on all six pairs while spec-requirement-3 through spec-requirement-10 hold. On macOS Apple silicon the removals are measured: about 177 MB of the 846 MB installation, about 41 MB of the update zip, and 70 MB more off the DMG from LZMA. The other five pairs were not packaged. — assumed: packaging the six pairs at the baseline and with the change and comparing them, and running the features those requirements list (Verification).
 
-design-doc-assumption-1: On macOS, with a language's locale pack removed from the Electron framework and the app bundle's own `.lproj` folder kept, `app.getLocale()` returns `en-US` when the system language is that language, as Chromium does on Windows and Linux. — assumed: the new system-language end-to-end test on macOS.
-
 design-doc-assumption-2: No code path that spec-requirement-5 to spec-requirement-10 exercise reads a source map or type declaration from the CLI's or the app's dependencies, or loads an excluded build-tool package. — assumed: the packaged end-to-end suite and the end-to-end flows in Verification on each platform.
 
 design-doc-assumption-3: Today's Windows release signing signs the PHP executables and DLLs under `resources/php-bin`, so the archive must carry that signature to keep parity. — assumed: listing the Authenticode signatures of those files in a signed baseline release build.
+
+design-doc-assumption-4: On Windows, Chromium chooses the app locale from the locale pack files present, so copies of the English pack in place of the 28 locales Studio maps to English keep the baseline's choice of locale. — assumed: the new system-language end-to-end test on Windows.
+
+design-doc-assumption-5: Locale packs linked to the English pack pass macOS signing and notarization, and survive the DMG, the Squirrel.Mac update install and the deb install. — assumed: the signed-build inspection, the packaged-output test, and the update and installation flows in Verification.
