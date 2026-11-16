@@ -2,8 +2,8 @@
 
 ## Goal
 
-The API of the providers package (`packages/providers`) is improved so that external developers can easily add new providers to Studio.
+External developers can add a new provider to `@studio/providers` easily, through a clear, well-defined API.
 
 ## Context
 
-intent-context-1: The providers package is not open to external developers yet. Studio will open it at some point.
+intent-context-1: The package isn't open to external contributors yet, but we plan to open it.
