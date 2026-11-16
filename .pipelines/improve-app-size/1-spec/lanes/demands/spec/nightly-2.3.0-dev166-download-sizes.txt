@@ -1,0 +1,17 @@
+# HEAD requests against the public Apps CDN links of nightly 2.3.0-dev166 (build 26362), the nightly the updates endpoint served on 2026-11-16T10:25Z
+mac-intel full-install -> 200 349028119 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-darwin-x64-v2.3.0-dev166.dmg last-modified: Mon, 16 Nov 2026 10:21:32 GMT
+mac-intel update -> 200 373897633 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-x64-v2.3.0-dev166.zip last-modified: Mon, 16 Nov 2026 10:19:24 GMT
+mac-silicon full-install -> 200 339284997 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-darwin-arm64-v2.3.0-dev166.dmg last-modified: Mon, 16 Nov 2026 10:21:54 GMT
+mac-silicon update -> 200 363948360 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-arm64-v2.3.0-dev166.zip last-modified: Mon, 16 Nov 2026 10:19:46 GMT
+windows-x64 full-install -> 200 389686784 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-setup-x64-v2.3.0-dev166.exe last-modified: Mon, 16 Nov 2026 10:22:15 GMT
+windows-x64 update -> 200 400187028 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-update-x64-v2.3.0-dev166-full.nupkg last-modified: Mon, 16 Nov 2026 10:20:11 GMT
+windows-arm64 full-install -> 200 381257728 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-setup-arm64-v2.3.0-dev166.exe last-modified: Mon, 16 Nov 2026 10:22:40 GMT
+windows-arm64 update -> 200 391744634 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-update-arm64-v2.3.0-dev166-full.nupkg last-modified: Mon, 16 Nov 2026 10:20:32 GMT
+linux-x64 full-install -> 404   
+linux-x64 update -> 200 230674484 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-x64-v2.3.0-dev166.deb last-modified: Mon, 16 Nov 2026 10:20:47 GMT
+linux-arm64 full-install -> 404   
+linux-arm64 update -> 200 224458712 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-arm64-v2.3.0-dev166.deb last-modified: Mon, 16 Nov 2026 10:21:02 GMT
+microsoft-store-x64 full-install -> 200 436461278 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-2.3.0.0-unsigned-x64-v2.3.0-dev166.appx last-modified: Mon, 16 Nov 2026 10:23:07 GMT
+microsoft-store-x64 update -> 404   
+microsoft-store-arm64 full-install -> 200 428163261 https://appscdn.wordpress.com/wp-content/uploads/2026/11/studio-2.3.0.0-unsigned-arm64-v2.3.0-dev166.appx last-modified: Mon, 16 Nov 2026 10:23:35 GMT
+microsoft-store-arm64 update -> 404   
