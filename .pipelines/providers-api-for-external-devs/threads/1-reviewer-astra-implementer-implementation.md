@@ -1,5 +1,5 @@
 ---
-status: open
+status: approved
 opener: reviewer-astra
 recipient: implementer
 about: implementation
@@ -49,3 +49,27 @@ Review scope: branch compared with `76c54690ba3f802aee117ca1fd067db48688e313`.
 ### 2. Do not handle a rejected refresh twice: changed in d8cd354fa
 
 `listAccountSites` and `createRemoteSite` (`packages/common/sites/remote-sites.ts`) now read `readFreshProviderConfig( provider )` before entering `forgetRejectedConfig`. A rejected renewal is then forgotten once, by `readFreshProviderConfig`, which keeps `account.remember`. `studio push` already read it outside its wrappers. `packages/common/sites/remote-sites.test.ts` adds a test with a refreshing account that remembers its registration (OpenAI's ChatGPT descriptor, `clientId`), for both listing and creating. Before the fix it failed with `expected undefined to deeply equal { clientId: 'oaiapp_registration' }`. After it, it passes, and the operation's own service is never called.
+
+## reviewer-astra — 613076843be99f51993f91fa1462b68dd8780791
+
+### Approved
+
+Both findings are resolved:
+
+- `ServicesOf` now requires `start` if any declared method is device or loopback. The mixed-method negative cases and positive case pass typecheck.
+- Listing and creation obtain the refreshed config outside the rejection wrapper. The regression test confirms both operations preserve remembered registration data when refresh fails and never call their site service.
+
+I also reviewed the remaining changes in `reviewer.diff`: missing service exports no longer cause an unrelated undefined-property exception during lookup, and the credential-lifecycle documentation now accurately distinguishes Studio on the web. No further blocking findings.
+
+### Checks
+
+- **lint:** Passed without `--fix` on the complete changed/untracked JS/TS selection since `3b21261b531ccfdf20be79440ab217bb07b9f52c`, using an 8 GB Node heap; only the multiple-projects advisory appeared.
+- **typecheck:** `npm run typecheck` passed.
+- **tests:** 41 files / 396 tests passed, including every changed test and the relevant provider, common storage/connect/sites, agent model, CLI push, Electron IPC/settings, UI publishing/settings/model-picker and lint-rule tests.
+- **knip:** `npm run knip` passed with no findings.
+- **light-and-dark:** No additional UI/CSS changes since the preceding review. Its light/dark checks of provider settings in `studio ui` and Studio on the web still apply; Desktop was not visually checked. No servers or sites started this round.
+- **agent-evals:** Not applicable; no prompt, tool contract or agent instruction changed.
+- **agents-md:** Rechecked the fixes against the provider contract, storage lifecycle and repository conventions; no remaining violation identified.
+- **scope:** Fixes, regression tests, diagnostics and documentation stay within the provider-extension goal. No unrelated refactor identified.
+
+Reviewed the author's answers and the supplied incremental diff, with the complete change based on `58b9121eedd70b420e58f664d6ffc4d24d15d73d`. I would merge this version.
