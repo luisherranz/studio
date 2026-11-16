@@ -1,0 +1,15 @@
+
+> test
+> vitest run packages/common/lib/tests/ai-settings.test.ts packages/common/lib/tests/provider-connect.test.ts apps/cli/ai/tests/auth.test.ts
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (apps/studio/vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.5 <worktree>
+
+
+ Test Files  3 passed (3)
+      Tests  31 passed (31)
+   Start at  16:20:33
+   Duration  1.10s (environment 35%, import 32%, transform 22%, tests 10%, setup 1%)

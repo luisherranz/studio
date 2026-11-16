@@ -1,0 +1,172 @@
+Current public API inventory:
+[
+  {
+    "id": "wpcom",
+    "methods": [
+      {
+        "id": "sign-in",
+        "kind": "redirect"
+      }
+    ],
+    "models": [
+      "fast",
+      "balanced",
+      "strong"
+    ],
+    "sites": {
+      "content": "archive",
+      "pull": true,
+      "create": "checkout"
+    },
+    "operations": {
+      "ai": true,
+      "images": true,
+      "sites": true,
+      "pull": true,
+      "create": false
+    }
+  },
+  {
+    "id": "anthropic",
+    "methods": [
+      {
+        "id": "api-key",
+        "kind": "form"
+      },
+      {
+        "id": "setup-token",
+        "kind": "form"
+      }
+    ],
+    "models": [
+      "claude-sonnet-5-5",
+      "claude-opus-5-5"
+    ],
+    "sites": null,
+    "operations": {
+      "ai": true,
+      "images": false,
+      "sites": false,
+      "pull": false,
+      "create": false
+    }
+  },
+  {
+    "id": "openai",
+    "methods": [
+      {
+        "id": "chatgpt",
+        "kind": "loopback"
+      },
+      {
+        "id": "api-key",
+        "kind": "form"
+      }
+    ],
+    "models": [
+      "gpt-6.1-terra",
+      "gpt-6.1-sol"
+    ],
+    "sites": null,
+    "operations": {
+      "ai": true,
+      "images": true,
+      "sites": false,
+      "pull": false,
+      "create": false
+    }
+  },
+  {
+    "id": "gemini",
+    "methods": [
+      {
+        "id": "api-key",
+        "kind": "form"
+      }
+    ],
+    "models": [
+      "gemini-3.8-flash",
+      "gemini-4-argon"
+    ],
+    "sites": null,
+    "operations": {
+      "ai": true,
+      "images": true,
+      "sites": false,
+      "pull": false,
+      "create": false
+    }
+  },
+  {
+    "id": "github-copilot",
+    "methods": [
+      {
+        "id": "github",
+        "kind": "device"
+      }
+    ],
+    "models": [
+      "claude-sonnet-5-5",
+      "gpt-6.1-terra",
+      "gemini-4-argon"
+    ],
+    "sites": null,
+    "operations": {
+      "ai": true,
+      "images": false,
+      "sites": false,
+      "pull": false,
+      "create": false
+    }
+  },
+  {
+    "id": "meta",
+    "methods": [
+      {
+        "id": "api-key",
+        "kind": "form"
+      }
+    ],
+    "models": [
+      "muse-spark-1.3",
+      "muse-wonder-1.0"
+    ],
+    "sites": null,
+    "operations": {
+      "ai": true,
+      "images": true,
+      "sites": false,
+      "pull": false,
+      "create": false
+    }
+  },
+  {
+    "id": "spacefast",
+    "methods": [
+      {
+        "id": "sign-in",
+        "kind": "device"
+      }
+    ],
+    "models": [],
+    "sites": {
+      "content": "static",
+      "pull": false,
+      "create": "create"
+    },
+    "operations": {
+      "ai": false,
+      "images": false,
+      "sites": true,
+      "pull": false,
+      "create": true
+    }
+  }
+]
+Anthropic secret field metadata: [{"name":"apiKey","secret":true}]
+Anthropic persisted id: {"read":"anthropic","write":"anthropic-api-key"}
+Account-restricted Copilot models: []
+OpenAI image support by connection method: {"apiKey":true,"chatgpt":false}
+Anthropic model without config: NotConnectedError: Connect Anthropic with an API key or a Claude subscription.
+Spacefast sites without config: NotConnectedError: Connect Spacefast to publish sites.
+Provider fetch calls: 0
