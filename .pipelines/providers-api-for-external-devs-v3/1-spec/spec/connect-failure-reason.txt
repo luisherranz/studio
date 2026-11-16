@@ -1,0 +1,40 @@
+# ConnectError reasons: who sets them, and who reads them, at 0b7db973b (run from the worktree root)
+
+$ git grep -n "ConnectError(.*'\(denied\|invalid\|unverified\)'\|^\s*'\(denied\|unverified\)'\|'denied' : 'invalid'" -- packages apps ":!*/tests/*"
+packages/common/lib/provider-connect.ts:100:			throw new ConnectError( __( 'Signing in was declined.' ), 'denied' );
+packages/providers/github-copilot/account.ts:103:			throw new ConnectError( __( 'GitHub sign-in was declined.' ), 'denied' );
+packages/providers/github-copilot/account.ts:108:	throw new ConnectError( __( 'The GitHub sign-in expired. Try again.' ), 'denied' );
+packages/providers/github-copilot/account.ts:135:		throw new ConnectError( error.message, 'unverified' );
+packages/providers/github-copilot/account.ts:142:		throw new ConnectError( getNoCopilotMessage(), 'unverified' );
+packages/providers/openai/account.ts:57:			'denied'
+packages/providers/openai/account.ts:149:			'unverified'
+packages/providers/spacefast/account.ts:39:					'denied'
+packages/providers/spacefast/account.ts:44:				'unverified'
+packages/providers/wpcom/account.ts:17:			params.error === 'access_denied' ? 'denied' : 'invalid'
+packages/providers/wpcom/account.ts:41:			'unverified'
+packages/providers/wpcom/account.ts:49:		throw new ConnectError( 'WordPress.com returned an unexpected account.', 'unverified' );
+
+$ git grep -n "\.reason\b" -- packages apps ":!*/tests/*" ":!*node_modules*"
+apps/cli/lib/static-site-import/prepare.ts:57:			.map( ( route ) => `  - ${ route.url }: ${ route.reason }` ),
+apps/ui/src/features/composer/use-command-sheet.ts:54:			if ( details.reason === 'trigger-press' && ! addOpen ) {
+apps/ui/src/features/onboarding/onboarding-guide/index.tsx:63:				if ( details.reason === 'escape-key' || details.reason === 'close-press' ) {
+apps/ui/src/features/sidebar/sidebar-layout/index.tsx:238:												details.reason === 'escape-key' &&
+apps/ui/src/features/sidebar/site-list/selection.tsx:326:			result.status === 'rejected' ? [ errorMessage( result.reason ) ] : []
+apps/ui/src/features/sites/site-preview/address-bar.tsx:417:				if ( details.reason === 'trigger-press' && ( recentOpen || remote ) ) return;
+apps/ui/src/features/sites/site-preview/preview-header/annotate-button.tsx:60:				if ( active && details.reason === 'escape-key' ) {
+apps/ui/src/lib/ui/color-picker/index.tsx:76:					details.reason === 'trigger-press' &&
+apps/ui/src/lib/ui/color-picker/index.tsx:83:				restoreFocus.current = details.reason === 'escape-key';
+packages/common/lib/agent-skills.ts:56:			console.error( '[ai-skills] Failed to install:', result.reason );
+packages/common/lib/agent-skills.ts:232:			console.error( '[skills] Failed to update a site:', result.reason );
+packages/common/lib/auth-tracks.ts:126:		error.reason
+packages/providers/spacefast/api.ts:40:				reject( signal.reason );
+packages/providers/wpcom/sites/index.ts:69:				reject( signal.reason );
+
+$ git grep -n "getAuthFailureReason" -- apps packages ":!*/tests/*"
+apps/cli/lib/wpcom-auth.ts:4:	getAuthFailureReason,
+apps/cli/lib/wpcom-auth.ts:50:			failure_reason: getAuthFailureReason( error ),
+apps/local/src/index.ts:60:	getAuthFailureReason,
+apps/local/src/index.ts:692:					failure_reason: getAuthFailureReason( failure ),
+apps/studio/src/lib/deeplink/handlers/auth.ts:4:import { getAuthFailureReason, getAuthTracksProps } from '@studio/common/lib/auth-tracks';
+apps/studio/src/lib/deeplink/handlers/auth.ts:45:		const failureReason = getAuthFailureReason( error );
+packages/common/lib/auth-tracks.ts:121:export function getAuthFailureReason( error: unknown ): TracksAuthFailureReason {

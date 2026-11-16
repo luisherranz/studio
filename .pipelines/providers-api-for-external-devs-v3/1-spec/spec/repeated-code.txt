@@ -54,7 +54,7 @@ packages/agent/protocol/sessions/model.ts:70:	return getProvider( provider ).ai?
 apps/cli/commands/ai/index.ts:79:	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ?? false;
 apps/cli/ai/eval-harnesses/studio.ts:158:	if ( ! getProvider( aiProvider ).ai?.models.some( ( { id } ) => id === resolvedModel ) ) {
 
-# ConnectError reasons: who sets them, and who reads them (no reader outside the providers)
+# ConnectError reasons: who sets them. This grep misses the reader, which reads `error.reason` on a line of its own; see connect-failure-reason.txt
 $ grep -rn "ConnectFailure\|'denied'\|'unverified'\|\.reason" --include=*.ts --include=*.tsx apps packages | grep -v node_modules | grep -v /tests/ | grep -i "connect\|denied\|unverified"
 packages/providers/spacefast/account.ts:39:					'denied'
 packages/providers/spacefast/account.ts:44:				'unverified'

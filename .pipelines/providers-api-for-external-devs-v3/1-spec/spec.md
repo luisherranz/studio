@@ -111,7 +111,7 @@ The contract asks a provider for no value that Studio does nothing with.
 
 origin: from-intent Goal ("through a clear, well-defined API")
 
-- Four providers, and Studio's own loopback sign-in, give a failed connection a reason: declined, invalid or unverified. Nothing in Studio's apps reads it. observed: grep, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/repeated-code.txt`.
+- WordPress.com, GitHub Copilot, OpenAI and Spacefast, and Studio's own loopback sign-in, give a failed connection a reason: declined, invalid or unverified. Studio reads it only for the Studio sign-in. There, WordPress.com's sign-in analytics record it, and the Desktop app shows "Authorization denied" for a declined sign-in. Nothing reads it for any other provider. observed: grep, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/connect-failure-reason.txt`, and read `packages/common/lib/auth-tracks.ts:120-127`, `apps/studio/src/lib/deeplink/handlers/auth.ts:44-61`, `apps/cli/lib/wpcom-auth.ts:41-52` and `apps/local/src/index.ts:681-695`.
 - The model connection's fields (the pi provider name, the key, the model) have no explanation beyond "Everything the runtime needs to register one model with pi". observed: read `packages/providers/types.ts:185-195`.
 
 spec-requirement-9: The contract names the model APIs Studio's agent runs: `openai-completions`, `openai-responses`, `anthropic-messages` and `google-generative-ai`. A new provider whose models use one of these chats in the Desktop app, `studio ui`, `studio code`, and Studio on the web where its account connects. When a provider's model connection names any other API, the developer is told so, by the repository's checks or as the chat's error. Its requests are never sent over a different API.
