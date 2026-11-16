@@ -2,9 +2,14 @@
 import type { ProviderConfigs, ProviderId, ProviderSite } from './registry';
 import type { ProviderServices } from './types';
 
-// Every provider folder's services, which its `services.ts` exports as `services`.
+// Every provider folder's services, which its `services.ts` exports as `services`. Vitest caches
+// a transformed module across runs unless it calls `import.meta.glob(` literally, so a type
+// argument here would keep a stale list of folders.
 const SERVICES = Object.values(
-	import.meta.glob< ProviderServices >( './*/services.ts', { eager: true, import: 'services' } )
+	import.meta.glob( './*/services.ts', { eager: true, import: 'services' } ) as Record<
+		string,
+		ProviderServices
+	>
 );
 
 export function getProviderServices< Id extends ProviderId >(
