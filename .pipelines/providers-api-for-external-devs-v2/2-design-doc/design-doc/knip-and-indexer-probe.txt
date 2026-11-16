@@ -1,0 +1,23 @@
+# knip reports a provider folder that nothing imports, at the folder's own files (base 8a823eaf5)
+$ mkdir packages/providers/example && echo "export const exampleThing = 1;" > packages/providers/example/descriptor.ts
+$ npx knip --workspace packages/providers --no-progress
+Unused files (1)
+packages/providers/example/descriptor.ts
+
+# knip treats a script that the package's own package.json runs with node as an entry
+$ (temporary) packages/providers/scripts/probe-index.ts importing node:fs, and "probe-index": "node --experimental-strip-types scripts/probe-index.ts" in packages/providers/package.json
+$ npx knip --workspace packages/providers --no-progress
+(knip: no issues)
+$ npm -w @studio/providers run probe-index
+
+22
+$ npx eslint packages/providers/scripts/probe-index.ts
+
+packages/providers/scripts/probe-index.ts
+  1:1  error  'node:fs' import is restricted from being used by a pattern. @studio/providers runs in the browser too; keep Node APIs out  no-restricted-imports
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+$ node --version
+v24.22.2

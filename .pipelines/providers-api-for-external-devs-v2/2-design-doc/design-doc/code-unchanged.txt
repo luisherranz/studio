@@ -1,0 +1,23 @@
+# The code these observations read is unchanged at this design's base (HEAD 0432b914c)
+$ git diff --stat 7ddc6ddac HEAD -- . ':!.pipelines'
+(no output: no file outside .pipelines changed since 7ddc6ddac, which precedes or equals the base each observation in this folder names)
+
+# The config store's Anthropic override reads Anthropic's own config fields
+$ sed -n 100,116p packages/common/lib/provider-config.ts
+	// Only an API key stays where older builds read it.
+	anthropic: {
+		read: async () => {
+			const config = await anthropicSection.read();
+			if ( config ) {
+				return config;
+			}
+			const { anthropicApiKey } = await readAiFields();
+			return anthropicApiKey && { method: 'api-key', apiKey: anthropicApiKey };
+		},
+		write: async ( config ) => {
+			await anthropicSection.write( config?.method === 'api-key' ? undefined : config );
+			await updateAiFields( {
+				anthropicApiKey: config?.method === 'api-key' ? config.apiKey : undefined,
+			} );
+		},
+	},

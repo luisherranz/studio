@@ -1,0 +1,20 @@
+$ grep -n "import.meta.glob" packages/agent/shared/skills.ts
+14:const SKILL_FILES = import.meta.glob< string >( './skills/**/*.{md,php}', {
+
+$ grep -n "skills" packages/agent/node/tests/plugin-skills.test.ts | head -3
+4:import { loadSkills } from '@studio/agent/shared/skills';
+8:	'../../../../plugins/wp-studio/skills'
+11:describe( 'wp-studio plugin skills', () => {
+
+$ npx vitest run packages/agent/node/tests/plugin-skills.test.ts
+ RUN  v5.0.5 <worktree>
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+
+$ grep -n "SKILL_FILES" packages/agent/shared/skills.ts
+14:const SKILL_FILES = import.meta.glob< string >( './skills/**/*.{md,php}', {
+37:	return Object.entries( SKILL_FILES )
+49:	cachedSkills ??= Object.keys( SKILL_FILES )
+52:		.flatMap( ( file ) => parseSkillFile( SKILL_FILES[ file ] ) ?? [] );
+
+loadSkills() reads only the glob result; the test compares it with the plugin folder listing and passes, so Vitest resolves import.meta.glob in workspace code.
