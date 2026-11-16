@@ -14,9 +14,11 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { globSync } from 'glob';
 import * as tar from 'tar';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
+import { DEFAULT_LOCALE } from '../../packages/common/lib/locale';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
 import { dmgLayout } from '../../scripts/dmg-layout';
 import { buildSpotlightNative } from './native/build';
+import { matchSupportedLocale } from './src/lib/match-supported-locale';
 import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
@@ -27,6 +29,51 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 const displayName = 'WordPress Studio';
 
 const execFileAsync = promisify( execFile );
+
+// English, and the Electron locales Studio shows in a translation, keep Chromium's locale pack.
+function keepsOwnLocalePack( locale: string ): boolean {
+	return (
+		new Intl.Locale( locale ).language === 'en' || matchSupportedLocale( locale ) !== DEFAULT_LOCALE
+	);
+}
+
+// The Electron locales Studio shows in English carry the English locale pack in place of their own.
+// Every locale keeps a pack, so Chromium still picks the app locale from the languages the system
+// lists, and with it Studio's language, and shows its own strings for these locales in English. The
+// pack is a link to the English one where the package formats carry links, and a copy on Windows,
+// where they don't.
+function useEnglishLocalePacks( electronPath: string, platform: string ) {
+	if ( platform === 'darwin' ) {
+		const [ resources ] = globSync(
+			'*.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources',
+			{ cwd: electronPath, absolute: true }
+		);
+		for ( const pack of globSync( '*.lproj/locale.pak', { cwd: resources } ) ) {
+			// Folder names use `_` for `-`, and some carry a grammatical gender: `es_419_FEMININE.lproj`.
+			const [ , locale, gender = '' ] =
+				/^(.+?)(_FEMININE|_MASCULINE|_NEUTER)?\.lproj[\\/]/.exec( pack ) ?? [];
+			if ( locale && ! keepsOwnLocalePack( locale.replace( /_/g, '-' ) ) ) {
+				const packPath = path.join( resources, pack );
+				fs.rmSync( packPath );
+				fs.symlinkSync( `../en${ gender }.lproj/locale.pak`, packPath );
+			}
+		}
+		return;
+	}
+
+	const locales = path.join( electronPath, 'locales' );
+	for ( const pack of fs.readdirSync( locales ) ) {
+		if ( pack.endsWith( '.pak' ) && ! keepsOwnLocalePack( path.basename( pack, '.pak' ) ) ) {
+			const packPath = path.join( locales, pack );
+			fs.rmSync( packPath );
+			if ( platform === 'win32' ) {
+				fs.copyFileSync( path.join( locales, 'en-US.pak' ), packPath );
+			} else {
+				fs.symlinkSync( 'en-US.pak', packPath );
+			}
+		}
+	}
+}
 
 // The signing identity @electron/osx-sign picks for the app: the first valid Developer ID
 // Application identity in the keychain search list.
@@ -114,6 +161,11 @@ const config: ForgeConfig = {
 			// InfoPlist.strings written below.
 			LSHasLocalizedDisplayName: true,
 		},
+		afterExtract: [
+			async ( { buildPath, platform } ) => {
+				useEnglishLocalePacks( buildPath, platform );
+			},
+		],
 		afterCopy: [
 			async ( { buildPath, platform, arch } ) => {
 				if ( platform === 'darwin' ) {
