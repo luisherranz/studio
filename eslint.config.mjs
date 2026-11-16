@@ -431,6 +431,17 @@ export default defineConfig(
 		},
 	},
 	{
+		// Every provider folder is registered, with services the services entry reads.
+		files: [
+			'packages/providers/registry.ts',
+			'packages/providers/*/descriptor.ts',
+			'packages/providers/*/services.ts',
+		],
+		rules: {
+			'studio/provider-registration': 'error',
+		},
+	},
+	{
 		files: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
 		rules: {
 			'import-x/no-restricted-paths': [
