@@ -148,6 +148,7 @@
     }
   },
   "owner-directions": [
-    "No issue backs this pipeline: the owner chose to start it without one, with an intent of only its title and Goal."
+    "No issue backs this pipeline: the owner chose to start it without one, with an intent of only its title and Goal.",
+    "The owner allows installing and using llama.cpp (llama-server), LM Studio and vLLM to test, and keeping them installed. Download only very small models to test, since disk space is scarce, and keep RAM use low so the computer does not freeze."
   ]
 }
