@@ -1,0 +1,20 @@
+# Does today's code typecheck with Vite's client types loaded, as a triple-slash reference in a package file would load them?
+# command per program: npx tsc -p <program>/tsconfig.json --noEmit --types vitest/globals,node,vite/client
+# base commit: 7ddc6ddac2aa1138146bbc38b593af473cb0051f
+=== apps/local exit=0
+
+=== apps/studio exit=0
+
+=== packages/common exit=0
+
+=== packages/providers exit=0
+
+
+# Programs that already load Vite's client types today
+$ npx tsc -p apps/cli/tsconfig.json --noEmit --listFilesOnly | grep -E "vite/client.d.ts|agent/shared/skills.ts"
+node_modules/vite/client.d.ts
+packages/agent/shared/skills.ts
+$ grep -n "vite/client" apps/static/tsconfig.json apps/ui/src/vite-env.d.ts packages/agent/shared/skills.ts
+apps/static/tsconfig.json:7:		"types": [ "vite/client" ],
+apps/ui/src/vite-env.d.ts:1:/// <reference types="vite/client" />
+packages/agent/shared/skills.ts:1:/// <reference types="vite/client" />

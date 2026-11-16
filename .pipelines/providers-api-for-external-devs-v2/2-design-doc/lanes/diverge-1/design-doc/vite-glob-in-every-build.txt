@@ -1,0 +1,63 @@
+# Does every build that reaches @studio/providers transform import.meta.glob? (base 7ddc6ddac)
+
+$ node -e "console.log(require(\"vite/package.json\").version, require(\"electron-vite/package.json\").version)"
+8.3.5 6.0.0
+
+$ grep -n "importGlobPlugin(config)" node_modules/vite/dist/node/chunks/node.js   (the plugin list every Vite build resolves; no condition around it)
+27731:function importGlobPlugin(config) {
+34210:		importGlobPlugin(config),
+$ sed -n 34205,34214p node_modules/vite/dist/node/chunks/node.js
+		buildHtmlPlugin(config),
+		workerImportMetaUrlPlugin(config),
+		assetImportMetaUrlPlugin(config),
+		...buildPlugins.pre,
+		dynamicImportVarsPlugin(config),
+		importGlobPlugin(config),
+		...postPlugins,
+		...buildPlugins.post,
+		clientInjectionsPlugin(config),
+		cssAnalysisPlugin(config),
+
+$ sed -n 386,392p node_modules/electron-vite/dist/chunks/lib-DoUt4oMD.js   (the Desktop main build is a Vite SSR build that bundles every dependency)
+            // module preload polyfill does not apply to nodejs (main process)
+            config.build.modulePreload = false;
+            // enable ssr build
+            config.build.ssr = true;
+            config.build.ssrEmitAssets = true;
+            config.ssr = { ...config.ssr, ...{ noExternal: true } };
+            config.build.rollupOptions = config.build.rolldownOptions;
+
+$ sed -n 26,36p apps/studio/electron.vite.config.ts   (main aliases @studio/providers to its source)
+		resolve: {
+			alias: {
+				src: resolve( __dirname, 'src' ),
+				'@studio/common': resolve( __dirname, '../../packages/common' ),
+				'@studio/agent': resolve( __dirname, '../../packages/agent' ),
+				'@studio/providers': resolve( __dirname, '../../packages/providers' ),
+				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+					__dirname,
+					'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+				),
+			},
+
+$ node -e (apps/cli/package.json: @studio/* in dependencies vs devDependencies; only dependencies stay external, apps/cli/vite.config.base.ts:22-26,200-211)
+dependencies []
+devDependencies [
+  '@studio/agent',
+  '@studio/blueprints',
+  '@studio/common',
+  '@studio/providers',
+  '@studio/local'
+]
+
+$ grep -n "@studio/providers" packages/common/vitest.config.ts apps/ui/vitest.config.ts   (test projects alias the package to its source, which Vitest transforms)
+packages/common/vitest.config.ts:17:				'@studio/providers': path.resolve( __dirname, '../providers' ),
+apps/ui/vitest.config.ts:21:				'@studio/providers': path.resolve( __dirname, '../../packages/providers' ),
+
+# Programs that reach @studio/providers outside a Vite build: none.
+$ npx tsc -p scripts/tsconfig.json --noEmit --listFilesOnly | grep -E "packages/(providers|agent)/"
+(no matches)
+$ npx tsc -p tools/capture-harness/tsconfig.json --noEmit --listFilesOnly | grep -E "packages/providers/"
+(no matches)
+$ node -e (dependencies of apps/mcp-ui)
+[]
