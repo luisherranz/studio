@@ -1,0 +1,43 @@
+# How LM Studio 0.4.28+2 keeps a model it loads on a request, and one loaded through its load API (2026-11-16)
+
+Server: lms server start --port 1241; models: qwen3-0.6b (LLM), text-embedding-nomic-embed-text-v1.5 (embedding).
+"loaded" lists each model's key and its loaded instances with their context_length, from GET /api/v1/models.
+TTL is the column `lms ps` prints. Before each case: lms unload --all.
+
+Before any request:
+loaded: [('qwen3-0.6b', []), ('text-embedding-nomic-embed-text-v1.5', [])]
+
+## A. Loaded by a chat request on the OpenAI-compatible API (JIT)
+POST /v1/chat/completions {"model":"qwen3-0.6b","messages":[{"role":"user","content":"hi"}],"max_tokens":1}
+-> HTTP 200, usage {"prompt_tokens": 9, "completion_tokens": 1, "total_tokens": 10}
+loaded: [('qwen3-0.6b', [('qwen3-0.6b', 8192)]), ('text-embedding-nomic-embed-text-v1.5', [])]
+lms ps: qwen3-0.6b  IDLE  522.64 MB  CONTEXT 8192  ...  TTL 60m / 1h
+
+Then a request that loads another model:
+POST /v1/embeddings {"model":"text-embedding-nomic-embed-text-v1.5","input":"hi"} -> HTTP 200
+loaded: [('qwen3-0.6b', []), ('text-embedding-nomic-embed-text-v1.5', [('text-embedding-nomic-embed-text-v1.5', 2048)])]
+-> qwen3-0.6b was unloaded (auto-evict).
+
+A second chat request reuses the instance the first one loaded:
+chat 1 HTTP 200 0.55 s, chat 2 HTTP 200 0.07 s; lms ps shows one qwen3-0.6b instance, CONTEXT 8192, TTL 60m / 1h;
+/api/v1/models: qwen3-0.6b has 1 loaded instance.
+
+## B. Loaded through LM Studio's load API
+POST /api/v1/models/load {"model":"qwen3-0.6b","echo_load_config":true}
+-> HTTP 200 {"type":"llm","instance_id":"qwen3-0.6b","load_time_seconds":0.527,"status":"loaded","load_config":{"context_length":8192,...}}
+loaded: [('qwen3-0.6b', [('qwen3-0.6b', 8192)]), ('text-embedding-nomic-embed-text-v1.5', [])]
+lms ps: qwen3-0.6b  IDLE  522.64 MB  CONTEXT 8192  ...  TTL (empty)
+
+Then the same request that loads another model:
+POST /v1/embeddings {"model":"text-embedding-nomic-embed-text-v1.5","input":"hi"} -> HTTP 200
+loaded: [('qwen3-0.6b', [('qwen3-0.6b', 8192)]), ('text-embedding-nomic-embed-text-v1.5', [('text-embedding-nomic-embed-text-v1.5', 2048)])]
+lms ps: qwen3-0.6b TTL (empty); text-embedding-nomic-embed-text-v1.5 TTL 60m / 1h
+-> qwen3-0.6b stayed loaded, with no idle TTL.
+
+## What LM Studio documents (https://lmstudio.ai/docs/developer/core/ttl-and-auto-evict, read 2026-11-16)
+- "By default, JIT-loaded models have a TTL of 60 minutes."
+- Auto-Evict, "[Default: enabled]": "At most `1` model is kept loaded in memory at a time (when loaded via JIT)"; "Non-JIT loaded models are not affected".
+- "By default, models loaded with `lms load` do not have a TTL, and will remain loaded in memory until you manually unload them."
+- The load API (https://lmstudio.ai/docs/developer/rest/load) documents no `ttl` field.
+
+Afterwards: lms unload --all, lms server stop.

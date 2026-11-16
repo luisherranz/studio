@@ -51,7 +51,7 @@ Data flow:
 
 1. **Connecting.** The Settings form or `/connect` calls `connectProvider` in `@studio/common`, through the IPC handler, the `apps/local` route, or the CLI directly. That calls the connector's `account.connect`, which lists the server's models and returns the config. Studio stores the config in `shared.json` under `providerConfigs`, and clears any model it remembered for the connector.
 2. **Listing.** The model picker, through the connector method and then the IPC handler or `apps/local` route, or `/model` directly, calls the listing operation in `@studio/common`. It reads the stored config and calls the connector's listing. That reads `/v1/models`, plus per-model facts from the server, and returns plain data per model.
-3. **A turn.** The app forks the CLI. The CLI resolves the provider (the session's pin, else the shared selection) and the model (the session's record, else the remembered or proposed default). It then calls the connector's `ai.model( config, id )`, which learns the model's image support and running context (asking Ollama to load the model first). That returns an `AiConnection`: plain Chat Completions to the server's `/v1` base, with an exact window and the connector's error wording. The runtime registers it with pi, and pi streams the turn from the server.
+3. **A turn.** The app forks the CLI. The CLI resolves the provider (the session's pin, else the shared selection) and the model (the session's record, else the remembered or proposed default). It then calls the connector's `ai.model( config, id )`, which learns the model's image support and running context (having Ollama or LM Studio load the model first, as a request would). That returns an `AiConnection`: plain Chat Completions to the server's `/v1` base, with an exact window and the connector's error wording. The runtime registers it with pi, and pi streams the turn from the server.
 
 ## Decisions
 
@@ -213,11 +213,15 @@ design-doc-decision-7: The connector learns each model's image support and runni
 
 - For each model, the connector's services read what the server reports. They read the model's `/v1/models` entry first, then the product APIs the server answers at its root, without asking which product runs it. The sources for the four servers are under Claims.
 - The model reads images only when the server says so.
-- The context the server runs the model with is needed only for a turn. On Ollama, it is known only once the model is loaded, so the connector asks Ollama to load it first; the turn's own request would load it anyway.
+- The context the server runs the model with is needed only for a turn. Ollama and LM Studio report it only once the model is loaded. When it isn't loaded, the connector has the server load it before the turn, the way the turn's own request would:
+  - Ollama, through a request that names only the model.
+  - LM Studio, through a request on its OpenAI-compatible API, never through its load API. The model is then loaded on request, and keeps the idle TTL and auto-evict LM Studio gives such models.
 - The listing (decision 4) carries image support. The model connection carries both facts: `model.input` includes images only when the server says the model reads them, and the connection's window is exact when the context is known (decision 9).
-- When a server reports no context, its connection has no exact window, and the server's own refusal ends a turn that is too large. This applies to LM Studio before its first load and to servers Studio doesn't know.
+- When a server reports no context, its connection has no exact window, and the server's own refusal ends a turn that is too large. This applies to servers Studio doesn't know.
 
 **Alternatives:**
+- Load LM Studio's model through its load API. A model loaded that way gets no idle TTL and isn't auto-evicted. Every model a person picks in Studio would stay in memory until they unload it, where a model loaded on request is unloaded after 60 idle minutes, or when another model loads on request.
+- Leave LM Studio's model to the turn's own request, and give every connection the context-too-small words, exact window or not. The first turn would get the words. But its compaction couldn't size itself to the window: a first turn that outgrows it would rely on pi's one compact-and-retry with today's sizes, which keep the last 20,000 tokens, more than LM Studio's default 8,192-token context.
 - Use only what `/v1` says. Ollama's `/v1/models` says nothing about context or images, and Ollama cuts a request that is too large silently, so spec-acceptance-criterion-21 couldn't hold.
 - Ask the person for the context and for whether the model reads images. spec-requirement-3 allows asking only for the address and the key.
 - Detect a cut request after the reply, from the prompt tokens the server reports. By then the reply has already streamed into the chat.
@@ -228,7 +232,7 @@ design-doc-decision-7: The connector learns each model's image support and runni
 
 - The generic connector carries knowledge of two products' own APIs (Ollama's and LM Studio's), and of fields two servers add to `/v1/models`. A server product Studio doesn't know gets the safe defaults until it is added.
 - vLLM never says whether a model reads images, so its vision models get no images.
-- A turn on Ollama starts by loading the model.
+- A turn on Ollama or LM Studio whose model isn't loaded starts by loading it. On LM Studio, that load produces a minimal reply nobody reads.
 
 **Claims:**
 
@@ -238,6 +242,9 @@ design-doc-decision-7: The connector learns each model's image support and runni
   - llama-server: `architecture.input_modalities` and `meta.n_ctx` in `/v1/models`.
   - vLLM: `max_model_len` in `/v1/models`, and no field about images.
   - LM Studio: `capabilities.vision`, and a loaded instance's `context_length`, in `/api/v1/models`.
+- observed: LM Studio 0.4.28 reports no loaded instance, and so no running context, before a request loads the model (`design-doc/lmstudio-load-probes.txt`):
+  - Loaded by a chat request on `/v1`, the model's instance reports its context (8,192), `lms ps` shows a 60-minute idle TTL, and a request that loads another model unloads it. A later chat request reuses the same instance.
+  - Loaded through `POST /api/v1/models/load`, it has no TTL, and stays loaded when another model loads.
 - observed: pi turns image blocks into placeholders for a model whose `input` lacks images (`node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js`), and Studio's vision-dependent tools follow `model.input` (`packages/agent/node/runtime/index.ts:220`).
 
 design-doc-decision-8: The connection speaks plain Chat Completions, and turn errors say what happened in the connector's words
@@ -426,7 +433,7 @@ Analytics: for a chat on the connector, the chat events carry `provider: local-l
 ## Dependencies
 
 - No new package. The connector uses pi-ai 1.5.0's `openai-completions` stream, which Studio already depends on, and `fetch`, so it runs wherever the providers' services run.
-- External, at the person's server: `GET /v1/models` and `POST /v1/chat/completions` on every server. Beyond `/v1`, at the server's root: Ollama's `/api/show`, `/api/generate` (to load a model) and `/api/ps`, and LM Studio's `/api/v1/models`. These are new external dependencies on product APIs. The connector depends on their documented fields only, and a server that doesn't answer them gets the defaults of decision 7.
+- External, at the person's server: `GET /v1/models` and `POST /v1/chat/completions` on every server. Beyond `/v1`, at the server's root: Ollama's `/api/show`, `/api/generate` (to load a model) and `/api/ps`, and LM Studio's `/api/v1/models`, whose models load on a `/v1` request. These are new external dependencies on product APIs. The connector depends on their documented fields only, and a server that doesn't answer them gets the defaults of decision 7.
 
 ## Failure modes and observability
 
@@ -436,8 +443,8 @@ Analytics: for a chat on the connector, the chat events carry `provider: local-l
 - **The server stops after connecting.** The picker offers none of its models. A turn ends at once with the not-answering message naming the address, which is recorded in the session's closed turn and shown in both surfaces. pi doesn't retry it, and no other provider answers.
 - **The server refuses the model.** The turn ends with the model's name, the server's reason in words, and the advice to pick another model. This covers a model without tools or chat, a model the server no longer has, and a proposed or remembered model that was removed.
 - **A llama-server still loading answers 503.** pi retries it with backoff, as it does today.
-- **A turn too large for the window.** On a server whose context is known, the request isn't sent: pi compacts and retries once, then the turn ends with the context-too-small words. On a server that refuses, the server's overflow refusal gets the same handling and the same words.
-- **A server reports no context.** The connection has no exact window, and the server's own refusal drives the handling above. A server that cuts silently and reports no context isn't covered (Risks).
+- **A turn too large for the window.** On a server whose context is known, the request isn't sent: pi compacts and retries once, then the turn ends with the context-too-small words. If the server refuses it anyway, its overflow refusal gets the same handling and the same words.
+- **A server reports no context.** This happens on a server Studio doesn't know, or for a model the server couldn't load, whose turn it then refuses (decision 8). The connection has no exact window. pi compacts and retries once on the server's overflow refusal, and the turn then ends in the server's words. A server that cuts silently and reports no context isn't covered (Risks).
 - **A server reports no image support.** The model counts as text-only. Its screenshots reach it as placeholders, and the composer holds attachments back.
 - **An older build shares the settings.** It runs chats on another connected provider, and keeps the connector's config.
 
@@ -446,7 +453,7 @@ Nothing new is logged. The errors above are the person's signal, and they reach 
 ## Verification
 
 - new test at the connector's services boundary (`packages/providers/local-llm/tests`) — design-doc-decision-2, spec-acceptance-criterion-6, spec-acceptance-criterion-7, spec-acceptance-criterion-9, spec-acceptance-criterion-10 — connecting accepts each address form spec-requirement-4 lists, and a missing key on a server that takes none. It fails with the address-naming, key-refused and no-models messages, and the account's summary is the address, never the key.
-- new test at the connector's services boundary — design-doc-decision-7, design-doc-decision-4 — the listing and the connection take image support and the running context from each of the four servers' reported fields, and load an Ollama model before reading its context. A server that reports nothing yields a text-only model and no exact window.
+- new test at the connector's services boundary — design-doc-decision-7, design-doc-decision-4 — the listing and the connection take image support and the running context from each of the four servers' reported fields, and have Ollama or LM Studio load a model that isn't loaded before reading its context, LM Studio through a `/v1` request and never its load API. A server that reports nothing yields a text-only model and no exact window.
 - new test at the connector's services boundary — design-doc-decision-8 — the connection's error wording for a server that doesn't answer, a refused key and a refused model. It leaves overflow refusals, 429 and 5xx untouched, and sends the server's name on the wire.
 - new test at the `@studio/providers` root (`packages/providers/tests/providers.test.ts`) — design-doc-decision-1, design-doc-decision-5 — `findAiModel` and the served check resolve connector ids to the connector and the server's name, built-in ids resolve as today, and the connector comes last in `AI_PROVIDER_IDS`.
 - new test at `getConnectFields` — design-doc-decision-2 — each field reports whether it is required, from its schema.
@@ -463,6 +470,7 @@ Nothing new is logged. The errors above are the person's signal, and they reach 
 - end-to-end flow, in the Desktop app and in `studio ui`, with Ollama — spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-3, spec-acceptance-criterion-7, spec-acceptance-criterion-9, spec-acceptance-criterion-11, spec-acceptance-criterion-12, spec-acceptance-criterion-14, spec-acceptance-criterion-15, spec-acceptance-criterion-16, spec-acceptance-criterion-17, spec-acceptance-criterion-18, spec-acceptance-criterion-19, spec-acceptance-criterion-20, spec-acceptance-criterion-24 — connecting, choosing, chatting, and every error, as a person meets them.
 - end-to-end flow, in `studio code`, with Ollama — spec-acceptance-criterion-3, spec-acceptance-criterion-4, spec-acceptance-criterion-7, spec-acceptance-criterion-9, spec-acceptance-criterion-13, spec-acceptance-criterion-14, spec-acceptance-criterion-16 — `/connect`, `/model`, `/provider`, `/disconnect`, and a tool-using turn that adds a page.
 - end-to-end flow, with Ollama running its model at a 4096-token context and then at a context that fits — spec-acceptance-criterion-21, spec-acceptance-criterion-22 — the first turn ends with the context-too-small error, and a long chat keeps getting replies while Ollama's log shows no truncation.
+- end-to-end flow, with LM Studio at its default context and its model not loaded — design-doc-decision-7, spec-acceptance-criterion-21 — the first turn ends with the context-too-small error, and the model LM Studio loaded keeps its idle TTL.
 - end-to-end flow, with llama-server started with a key, and with LM Studio and vLLM — spec-acceptance-criterion-5, spec-acceptance-criterion-8 — each connects from its address alone, offers its models, and gets a reply. A missing or wrong key fails with the key-refused message.
 - end-to-end flow, with the computer's network off — spec-acceptance-criterion-23 — a turn on a local model runs and replies, in the app and in `studio code`.
 - end-to-end flow, with a build from before the change sharing the settings — design-doc-decision-14, spec-acceptance-criterion-26 — the older build chats on another provider, and the newer build still shows the connector connected.
@@ -471,10 +479,9 @@ Nothing new is logged. The errors above are the person's signal, and they reach 
 
 ## Risks
 
-- **A server Studio doesn't know may cut requests silently and report no context.** Its cut requests would reach the model without the person knowing (spec-requirement-15). Of the four servers examined, only Ollama cuts silently, and Studio reads Ollama's context.
+- **A server Studio doesn't know may cut requests silently and report no context.** Its cut requests would reach the model without the person knowing (spec-requirement-15). Of the four servers examined, only Ollama cuts silently, and Studio reads Ollama's context. A server Studio doesn't know that refuses an oversized turn ends it in the server's words, not the context-too-small words.
 - **The token estimate may under-count.** For text that tokenizes densely, Ollama could still cut a request the guard let through, and the reply would rest on a cut prompt. This depends on design-doc-assumption-1.
 - **vLLM never says whether a model reads images.** Its vision models get no images, and the composer holds attachments back for them (spec-assumption-2).
-- **LM Studio's context is unknown until it loads a model.** Before then, an oversized turn relies on LM Studio's own refusal, which pi recognises. Compaction can't plan for a window it doesn't know.
 - **A server may guard chat but not its model list.** Then a wrong key passes at connect and the first turn fails with the key-refused message. The spec's evidence leaves this open for LM Studio.
 - **A proposed or remembered model may be removed from the server.** The first turn of a new chat then gets the "pick another model" error.
 - **Connecting to another server can strand existing chats.** A chat recorded on a model the new server doesn't have gets the refusal on each turn until the person picks another model.
@@ -484,7 +491,7 @@ Nothing new is logged. The errors above are the person's signal, and they reach 
 
 ## Open assumptions
 
-spec-assumption-1: On every local server, Studio can learn the context the server runs a model with, or the fact that a turn didn't fit in it. This is what spec-requirement-15 rests on. Ollama reports it in `/api/ps` once the model is loaded (`design-doc/ollama-context-probes.txt`). llama-server, vLLM and LM Studio document it, and refuse a turn that doesn't fit (`design-doc/server-capability-docs.md`). — assumed: confirmed when a first turn on Ollama with a 4096-token context shows the context-too-small error, and an oversized turn on llama-server, LM Studio and vLLM shows it too.
+spec-assumption-1: On every local server, Studio can learn the context the server runs a model with, or the fact that a turn didn't fit in it. This is what spec-requirement-15 rests on. Ollama reports it in `/api/ps` once the model is loaded (`design-doc/ollama-context-probes.txt`), and LM Studio in `/api/v1/models` once a request loads it (`design-doc/lmstudio-load-probes.txt`). llama-server and vLLM document it, and llama-server, vLLM and LM Studio refuse a turn that doesn't fit (`design-doc/server-capability-docs.md`). — assumed: confirmed when a first turn on Ollama with a 4096-token context shows the context-too-small error, and an oversized turn on llama-server, LM Studio and vLLM shows it too.
 
 spec-assumption-2: On every local server, Studio can learn whether a local model reads images (spec-requirement-14). vLLM reports nothing in its source, so its models count as text-only (Risks). — assumed: confirmed when a turn holding a screenshot completes on Ollama's `qwen3:0.6b`, and a model Ollama lists with the `vision` capability describes an attached image.
 
