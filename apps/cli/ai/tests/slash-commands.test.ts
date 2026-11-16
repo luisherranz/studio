@@ -7,7 +7,6 @@ vi.mock( 'cli/lib/providers', () => ( { isProviderConnected: vi.fn() } ) );
 vi.mock( '@studio/common/lib/ai-settings', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/ai-settings') >() ),
 	disconnectProvider: vi.fn(),
-	recordAiModelChoice: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/provider-config', () => ( {
 	readProviderConfig: vi.fn(),
@@ -162,9 +161,8 @@ describe( '/model slash command', () => {
 		expect( ctx.currentModel ).toBe( 'fast' );
 	} );
 
-	it( 'offers the models a local server lists by their names, and remembers the pick', async () => {
+	it( 'offers the models a local server lists by their names, and runs the chat on the pick', async () => {
 		const { readFreshProviderConfig } = await import( '@studio/common/lib/provider-config' );
-		const { recordAiModelChoice } = await import( '@studio/common/lib/ai-settings' );
 		vi.mocked( readFreshProviderConfig ).mockResolvedValue( {
 			method: 'server',
 			baseUrl: 'http://127.0.0.1:11434/v1',
@@ -177,7 +175,7 @@ describe( '/model slash command', () => {
 					? Response.json( { data: [ { id: 'qwen3:0.6b' }, { id: 'gemma3:270m' } ] } )
 					: new Response( 'Not found', { status: 404 } )
 			);
-		const { ctx } = buildModelCtx( {
+		const { ctx, persistMock } = buildModelCtx( {
 			currentModel: 'local-llm/qwen3:0.6b',
 			askUserResponse: 'gemma3:270m',
 		} );
@@ -190,7 +188,7 @@ describe( '/model slash command', () => {
 			{ label: 'gemma3:270m', description: '' },
 		] );
 		expect( ctx.currentModel ).toBe( 'local-llm/gemma3:270m' );
-		expect( recordAiModelChoice ).toHaveBeenCalledWith( 'local-llm/gemma3:270m' );
+		expect( persistMock ).toHaveBeenCalledOnce();
 		fetchSpy.mockRestore();
 	} );
 

@@ -24,7 +24,6 @@ import {
 	persistSelectedAiProvider,
 	readAiSettings,
 	readSelectedAiProvider,
-	recordAiModelChoice,
 } from '@studio/common/lib/ai-settings';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -149,11 +148,9 @@ async function readDefaultModel( provider: AiProviderId ): Promise< AiModelId > 
 	if ( ! getProvider( provider ).ai?.userServer ) {
 		return getDefaultAiModel( provider );
 	}
-	const { accounts, chosenModels } = await readAiSettings();
-	const account = accounts[ provider ];
+	const account = ( await readAiSettings() ).accounts[ provider ];
 	return getDefaultAiModel( provider, {
 		account: account.connected ? account : undefined,
-		chosenModel: chosenModels?.[ provider ],
 	} );
 }
 
@@ -431,7 +428,6 @@ export async function runCommand( options: {
 
 		await persistSelectedAiProvider( currentProvider );
 		await persistProviderPin();
-		await recordAiModelChoice( currentModel );
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(

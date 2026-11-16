@@ -77,10 +77,6 @@ export const sharedConfigSchema = z
 				)
 			)
 			.optional(),
-		// The model the user chose last on each provider whose models a server they run lists, keyed
-		// by stored provider id: new chats on it start there. Read and written through
-		// `./ai-settings.ts`.
-		chosenAiModels: z.record( z.string(), z.string() ).optional(),
 		// AI provider selection and the Anthropic API key, shared by Studio and
 		// the Studio CLI. Typed as plain strings so an unknown provider value
 		// written by a newer build degrades gracefully instead of failing the

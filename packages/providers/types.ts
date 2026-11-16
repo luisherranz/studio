@@ -107,8 +107,8 @@ export interface AccountDetails {
 	// The provider's models this account can run, when its plan decides which: surfaces offer
 	// only these. Without it, the account runs every model the provider lists.
 	models?: AiModelId[];
-	// The model new chats on the account start on, for a provider whose models a server the user
-	// runs lists, which has no default of its own.
+	// The model a new chat on the account starts on when the user hasn't picked one, for a provider
+	// whose models a server the user runs lists, which has no default of its own.
 	model?: AiModelId;
 	links?: { label: string; url: string }[];
 }
@@ -200,8 +200,8 @@ export type ProviderAi =
 	  }
 	| {
 			// The models are the ones a server the user runs lists, which surfaces read from it each
-			// time they offer them (`listModels`). New chats start on the model the user chose last
-			// on it, or the account's. Chats on it need no internet, and analytics never name them.
+			// time they offer them (`listModels`). New chats start on the account's model. Chats on it
+			// need no internet, and analytics never name them.
 			userServer: true;
 			models?: undefined;
 			defaultModel?: undefined;

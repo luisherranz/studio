@@ -59,7 +59,8 @@ export function resolveSessionModel(
 /**
  * `resolveSessionModel` constrained to what the provider can serve: a
  * recorded model it no longer offers snaps to the provider's default, which
- * `settings` decide for a provider whose models a server the user runs lists.
+ * the account in `settings` decides for a provider whose models a server the
+ * user runs lists.
  */
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
@@ -70,7 +71,6 @@ export function resolveSessionModelForProvider(
 	const defaultModel = getDefaultAiModel( provider, {
 		canUsePaidModels: options?.canUsePaidModels,
 		account: account?.connected ? account : undefined,
-		chosenModel: options?.settings?.chosenModels?.[ provider ],
 	} );
 	const model = resolveSessionModel( entries, defaultModel );
 	return servesAiModel( provider, model ) ? model : defaultModel;

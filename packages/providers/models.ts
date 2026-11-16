@@ -90,16 +90,14 @@ export function servesAiModel( provider: ProviderId, id: string ): boolean {
 /**
  * The model new chats on the provider start on. `paidDefaultModel` when the account has paid AI
  * credits left; callers without quota data get the plain default. A provider whose models a
- * server the user runs lists starts on the model the user chose last on it (`chosenModel`), or
- * else the one its account proposes; until it is connected it has neither, and WordPress.com's
- * default, which it doesn't serve, stands in.
+ * server the user runs lists starts on the model its account proposed when it connected; until it
+ * is connected it has none, and WordPress.com's default, which it doesn't serve, stands in.
  */
 export function getDefaultAiModel(
 	provider: ProviderId,
 	options?: {
 		canUsePaidModels?: boolean;
 		account?: { model?: AiModelId };
-		chosenModel?: AiModelId;
 	}
 ): AiModelId {
 	const ai = getProvider( provider ).ai;
@@ -107,7 +105,7 @@ export function getDefaultAiModel(
 		throw new Error( `${ provider } offers no AI models` );
 	}
 	if ( ai.userServer ) {
-		return options?.chosenModel ?? options?.account?.model ?? getDefaultAiModel( 'wpcom' );
+		return options?.account?.model ?? getDefaultAiModel( 'wpcom' );
 	}
 	return ( options?.canUsePaidModels && ai.paidDefaultModel ) || ai.defaultModel;
 }

@@ -10,7 +10,7 @@ import { listAiProviderModels, setAiSessionModel, setAiSessionProvider } from 's
 import type { IpcMainInvokeEvent } from 'electron';
 
 vi.mock( 'src/lib/oauth' );
-// The settings are read from and written to a folder of this test's own.
+// The settings are read from a folder of this test's own.
 vi.unmock( 'atomically' );
 // What the handlers write to the session; the store's own tests cover writing it.
 vi.mock( '@studio/agent/node/sessions/store', async ( importOriginal ) => ( {
@@ -23,8 +23,6 @@ const event = {} as IpcMainInvokeEvent;
 
 describe( 'a local model server in the Desktop app', () => {
 	let configDir: string;
-	const readShared = () =>
-		JSON.parse( fs.readFileSync( path.join( configDir, 'shared.json' ), 'utf8' ) );
 
 	beforeEach( () => {
 		configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ai-session-model-' ) );
@@ -66,7 +64,7 @@ describe( 'a local model server in the Desktop app', () => {
 		] );
 	} );
 
-	it( 'pins a chat to a local model and remembers the one chosen last for new chats', async () => {
+	it( 'pins a chat to a local model, and switches it to another', async () => {
 		await expect(
 			setAiSessionProvider( event, 'chat', 'local-llm', 'claude-sonnet-5-5' )
 		).rejects.toThrow( 'Model claude-sonnet-5-5 is not served by provider local-llm' );
@@ -78,7 +76,6 @@ describe( 'a local model server in the Desktop app', () => {
 			'studio.session_context',
 			{ provider: 'local-llm', model: 'local-llm/gemma3:4b' }
 		);
-		expect( readShared().chosenAiModels ).toEqual( { 'local-llm': 'local-llm/gemma3:4b' } );
 
 		await setAiSessionModel( event, 'chat', 'local-llm/qwen3:0.6b' );
 		expect( appendModelChangeEntry ).toHaveBeenCalledWith(
@@ -87,6 +84,5 @@ describe( 'a local model server in the Desktop app', () => {
 			'',
 			'local-llm/qwen3:0.6b'
 		);
-		expect( readShared().chosenAiModels ).toEqual( { 'local-llm': 'local-llm/qwen3:0.6b' } );
 	} );
 } );

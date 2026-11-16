@@ -50,7 +50,6 @@ vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	persistSelectedAiProvider: vi.fn(),
 	readAiSettings: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
-	recordAiModelChoice: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/provider-config', () => ( {
 	readProviderConfig: vi.fn(),
@@ -616,7 +615,6 @@ describe( 'AI runCommand — a chat on a local server', () => {
 					model: 'local-llm/qwen3:0.6b',
 				},
 			},
-			chosenModels: { 'local-llm': 'local-llm/gemma3:4b' },
 		} );
 		( createStudioSession as Mock ).mockResolvedValue( {
 			appendCustomEntry,
@@ -630,12 +628,12 @@ describe( 'AI runCommand — a chat on a local server', () => {
 		stdoutSpy.mockRestore();
 	} );
 
-	it( 'starts a new chat on the model chosen last on the server', async () => {
+	it( 'starts a new chat on the model the account proposed when it connected', async () => {
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
 
 		expect( resolveAiConnection ).toHaveBeenCalledWith(
 			'local-llm',
-			'local-llm/gemma3:4b',
+			'local-llm/qwen3:0.6b',
 			expect.anything()
 		);
 	} );

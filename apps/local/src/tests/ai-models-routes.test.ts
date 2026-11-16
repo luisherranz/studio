@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,9 +12,6 @@ let modelServer: Server;
 let modelServerUrl: string;
 let configDir: string;
 let sessionsRoot: string;
-
-const readShared = () =>
-	JSON.parse( readFileSync( path.join( configDir, 'shared.json' ), 'utf-8' ) );
 
 function connectLocalServer() {
 	writeFileSync(
@@ -108,7 +105,7 @@ describe( 'a local model server', () => {
 		} );
 	} );
 
-	it( 'pins a chat to a local model and remembers it for new chats', async () => {
+	it( 'pins a chat to a local model, and switches it to another', async () => {
 		connectLocalServer();
 		const id = await createSession();
 
@@ -124,14 +121,12 @@ describe( 'a local model server', () => {
 				} )
 			).status
 		).toBe( 204 );
-		expect( readShared().chosenAiModels ).toEqual( { 'local-llm': 'local-llm/gemma3:4b' } );
 
 		expect(
 			( await post( `/api/sessions/${ id }/model`, { model: 'local-llm/qwen3:0.6b' } ) ).status
 		).toBe( 204 );
-		const settings = await ( await fetch( `${ server.url }/api/ai-settings` ) ).json();
-		expect( settings.chosenModels ).toEqual( { 'local-llm': 'local-llm/qwen3:0.6b' } );
 		const session = await ( await fetch( `${ server.url }/api/sessions/${ id }` ) ).json();
 		expect( JSON.stringify( session.entries ) ).toContain( 'local-llm/gemma3:4b' );
+		expect( JSON.stringify( session.entries ) ).toContain( 'local-llm/qwen3:0.6b' );
 	} );
 } );

@@ -50,7 +50,6 @@ import {
 	disconnectProvider,
 	listProviderModels,
 	readAiSettings,
-	recordAiModelChoice,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
 import {
@@ -2229,7 +2228,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
-			await recordAiModelChoice( model );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2251,7 +2249,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				provider: toStoredProviderId( provider ),
 				model,
 			} );
-			await recordAiModelChoice( model );
 			res.sendStatus( 204 );
 		} )
 	);

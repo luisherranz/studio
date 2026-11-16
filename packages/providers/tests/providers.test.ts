@@ -61,13 +61,10 @@ describe( 'models', () => {
 		);
 	} );
 
-	it( 'starts a local server’s chats on the model chosen last, else the account’s', () => {
+	it( 'starts a local server’s chats on the model its account proposed', () => {
 		const account = { model: 'local-llm/qwen3:0.6b' } as const;
 
 		expect( getDefaultAiModel( 'local-llm', { account } ) ).toBe( 'local-llm/qwen3:0.6b' );
-		expect(
-			getDefaultAiModel( 'local-llm', { account, chosenModel: 'local-llm/gemma3:4b' } )
-		).toBe( 'local-llm/gemma3:4b' );
 	} );
 } );
 

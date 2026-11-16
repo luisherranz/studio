@@ -162,7 +162,7 @@ describe( 'SessionView handed-over prompt', () => {
 
 describe( 'SessionView on a local model server', () => {
 	// The selected provider is a local server, which proposed qwen3 when it connected.
-	function localServerConnector( chosen?: 'local-llm/gemma3:4b' ) {
+	function localServerConnector() {
 		const connector = chatConnector();
 		const settings = aiSettings( 'local-llm', [ 'wpcom', 'local-llm' ] );
 		settings.accounts[ 'local-llm' ] = {
@@ -171,22 +171,16 @@ describe( 'SessionView on a local model server', () => {
 			summary: 'http://localhost:11434',
 			model: 'local-llm/qwen3:0.6b',
 		};
-		connector.getAiSettings.mockResolvedValue( {
-			...settings,
-			chosenModels: chosen ? { 'local-llm': chosen } : {},
-		} );
+		connector.getAiSettings.mockResolvedValue( settings );
 		return connector;
 	}
 
-	it.each( [
-		[ 'the one the server proposed', undefined, 'qwen3:0.6b' ],
-		[ 'the model chosen last on the server', 'local-llm/gemma3:4b', 'gemma3:4b' ],
-	] as const )( 'starts a chat on %s', async ( _case, chosen, label ) => {
-		renderApp( { connector: localServerConnector( chosen ), path: PATH } );
+	it( 'starts a chat on the model the server proposed when it connected', async () => {
+		renderApp( { connector: localServerConnector(), path: PATH } );
 
 		await composer();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( label )
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'qwen3:0.6b' )
 		);
 	} );
 

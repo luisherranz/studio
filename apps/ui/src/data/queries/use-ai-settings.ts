@@ -1,4 +1,4 @@
-import { AI_PROVIDER_IDS, findAiModel, getConnectMethod, getProvider } from '@studio/providers';
+import { AI_PROVIDER_IDS, getConnectMethod, getProvider } from '@studio/providers';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useConnector, type Connector } from '@/data/core';
@@ -76,20 +76,6 @@ export function useReadListedModels() {
 			} ),
 		[ connector, queryClient ]
 	);
-}
-
-/**
- * Re-reads the AI settings after the user picked `model` on a provider whose models a server they
- * run lists, which Studio remembers for new chats on it.
- */
-export function refreshChosenModel(
-	queryClient: ReturnType< typeof useQueryClient >,
-	model: string
-) {
-	const provider = findAiModel( model )?.provider;
-	if ( provider && getProvider( provider ).ai?.userServer ) {
-		void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
-	}
 }
 
 // Whether a provider that serves AI models is connected.

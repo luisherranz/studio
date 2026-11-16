@@ -48,7 +48,7 @@ import {
 	type SiteAgentFileKind,
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
-import { disconnectProvider, recordAiModelChoice } from '@studio/common/lib/ai-settings';
+import { disconnectProvider } from '@studio/common/lib/ai-settings';
 import {
 	getAuthTracksProps,
 	onboardingAnalyticsSchema,
@@ -367,7 +367,6 @@ export async function setAiSessionModel(
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
 	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
-	await recordAiModelChoice( model );
 }
 
 export async function setAiSessionProvider(
@@ -387,7 +386,6 @@ export async function setAiSessionProvider(
 		provider: toStoredProviderId( provider ),
 		model,
 	} );
-	await recordAiModelChoice( model );
 }
 
 export async function setAiSessionEnvironment(

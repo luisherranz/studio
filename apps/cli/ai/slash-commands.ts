@@ -3,7 +3,6 @@ import {
 	describeAccount,
 	disconnectProvider,
 	listProviderModels,
-	recordAiModelChoice,
 } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
@@ -474,7 +473,6 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					)
 				);
 				await ctx.persistSessionContext();
-				await recordAiModelChoice( newModel );
 			}
 			return 'continue';
 		},

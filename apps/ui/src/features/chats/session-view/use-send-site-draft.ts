@@ -4,7 +4,6 @@ import { useCallback } from 'react';
 import { useAgentRunStore } from '@/data/agent-runs/context';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { refreshChosenModel } from '@/data/queries/use-ai-settings';
 import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import type { SendMessageOptions } from '@/data/agent-runs/store';
@@ -33,7 +32,6 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 					const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
 					update( { sessionId } );
 					await connector.setSessionProvider( sessionId, provider, model );
-					refreshChosenModel( queryClient, model );
 					await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
 					session = await connector.getSession( sessionId );
 					queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );

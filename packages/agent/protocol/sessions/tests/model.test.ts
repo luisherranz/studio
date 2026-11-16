@@ -48,17 +48,12 @@ describe( 'resolveSessionModelForProvider', () => {
 			{ type: 'custom', customType: 'studio.session_context', data: { model } },
 		] as unknown as SessionEntry[];
 
-	it( 'starts a chat on a local server on the model chosen last, else the account’s', () => {
+	it( 'starts a chat on a local server on the model its account proposed', () => {
 		const connected = settings( 'local-llm', [ 'local-llm' ] );
 
 		expect( resolveSessionModelForProvider( [], 'local-llm', { settings: connected } ) ).toBe(
 			'local-llm/qwen3:0.6b'
 		);
-		expect(
-			resolveSessionModelForProvider( [], 'local-llm', {
-				settings: { ...connected, chosenModels: { 'local-llm': 'local-llm/gemma3:4b' } },
-			} )
-		).toBe( 'local-llm/gemma3:4b' );
 	} );
 
 	it( 'keeps the local model a chat recorded, which no other provider serves', () => {
