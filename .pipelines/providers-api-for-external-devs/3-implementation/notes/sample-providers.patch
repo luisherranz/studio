@@ -1,0 +1,1095 @@
+diff --git a/packages/providers/registry.ts b/packages/providers/registry.ts
+index 04efff15c..8a08cbe32 100644
+--- a/packages/providers/registry.ts
++++ b/packages/providers/registry.ts
+@@ -2,6 +2,9 @@ import { anthropicProvider } from './anthropic/descriptor';
+ import { geminiProvider } from './gemini/descriptor';
+ import { githubCopilotProvider } from './github-copilot/descriptor';
+ import { openaiProvider } from './openai/descriptor';
++import { sampleBothProvider } from './sample-both/descriptor';
++import { sampleChatProvider } from './sample-chat/descriptor';
++import { sampleHostingProvider } from './sample-hosting/descriptor';
+ import { spacefastProvider } from './spacefast/descriptor';
+ import { wpcomProvider } from './wpcom/descriptor';
+ import type { ConfigOf, ModelIdOf, Provider, ProviderSitesInfo, RemoteSite, SiteOf } from './types';
+@@ -18,6 +21,9 @@ const PROVIDERS = [
+ 	geminiProvider,
+ 	githubCopilotProvider,
+ 	spacefastProvider,
++	sampleChatProvider,
++	sampleHostingProvider,
++	sampleBothProvider,
+ ] as const;
+ 
+ type Registered = ( typeof PROVIDERS )[ number ];
+diff --git a/packages/providers/sample-both/account.ts b/packages/providers/sample-both/account.ts
+new file mode 100644
+index 000000000..00c19baf7
+--- /dev/null
++++ b/packages/providers/sample-both/account.ts
+@@ -0,0 +1,79 @@
++import { __ } from '@wordpress/i18n';
++import { ConnectError, NotConnectedError } from '../errors';
++import { SAMPLE_BOTH_URL, sampleBothConnectInput, type sampleBothProvider } from './descriptor';
++import type { SampleBothConfig } from './config';
++import type { ServicesOf } from '../types';
++
++type SampleBothAccount = ServicesOf< typeof sampleBothProvider >[ 'account' ];
++
++const RENEW_MARGIN_MS = 20_000;
++
++async function requestTokens( body: Record< string, string > ): Promise< Response > {
++	return fetch( `${ SAMPLE_BOTH_URL }/oauth/token`, {
++		method: 'POST',
++		headers: { 'Content-Type': 'application/json' },
++		body: JSON.stringify( body ),
++	} );
++}
++
++async function readTokens( response: Response ): Promise< SampleBothConfig > {
++	const tokens = ( await response.json() ) as {
++		access_token: string;
++		refresh_token: string;
++		expires_in: number;
++		account: string;
++		models: string[];
++	};
++	return {
++		method: 'sign-in',
++		accessToken: tokens.access_token,
++		refreshToken: tokens.refresh_token,
++		accessTokenExpiresAt: Date.now() + tokens.expires_in * 1000,
++		account: tokens.account,
++		models: tokens.models,
++	};
++}
++
++const start: SampleBothAccount[ 'start' ] = async ( _method, { redirectUri } ) => {
++	if ( ! redirectUri ) {
++		throw new Error( 'Signing in to Sample Both needs an address on this computer.' );
++	}
++	const state = crypto.randomUUID();
++	const url = new URL( `${ SAMPLE_BOTH_URL }/authorize` );
++	url.search = new URLSearchParams( { redirect_uri: redirectUri, state } ).toString();
++	return { url: url.toString(), handoff: { state } };
++};
++
++const connect: SampleBothAccount[ 'connect' ] = async ( method, input ) => {
++	if ( method === 'api-key' ) {
++		const parsed = sampleBothConnectInput().safeParse( input );
++		if ( ! parsed.success ) {
++			throw new ConnectError( parsed.error.issues[ 0 ].message );
++		}
++		return { method: 'api-key', apiKey: parsed.data.apiKey };
++	}
++	if ( ! input.code ) {
++		throw new ConnectError( __( 'Start signing in to Sample Both again.' ) );
++	}
++	const response = await requestTokens( { grant_type: 'authorization_code', code: input.code } );
++	if ( ! response.ok ) {
++		throw new ConnectError( __( 'Sample Both sign-in could not be completed.' ), 'unverified' );
++	}
++	return readTokens( response );
++};
++
++const refresh: SampleBothAccount[ 'refresh' ] = async ( config ) => {
++	if ( config.method === 'api-key' || config.accessTokenExpiresAt - Date.now() > RENEW_MARGIN_MS ) {
++		return undefined;
++	}
++	const response = await requestTokens( {
++		grant_type: 'refresh_token',
++		refresh_token: config.refreshToken,
++	} );
++	if ( response.status === 401 ) {
++		throw new NotConnectedError( 'Your Sample Both sign-in expired. Connect Sample Both again.' );
++	}
++	return readTokens( response );
++};
++
++export const sampleBothAccount: SampleBothAccount = { start, connect, refresh };
+diff --git a/packages/providers/sample-both/ai.ts b/packages/providers/sample-both/ai.ts
+new file mode 100644
+index 000000000..79a60805a
+--- /dev/null
++++ b/packages/providers/sample-both/ai.ts
+@@ -0,0 +1,61 @@
++import { NotConnectedError } from '../errors';
++import { SAMPLE_BOTH_AI_MODELS, SAMPLE_BOTH_URL, type sampleBothProvider } from './descriptor';
++import type { SampleBothConfig } from './config';
++import type { ServicesOf } from '../types';
++
++function credential( config: SampleBothConfig ): string {
++	return config.method === 'api-key' ? config.apiKey : config.accessToken;
++}
++
++export const sampleBothAi: ServicesOf< typeof sampleBothProvider >[ 'ai' ] = {
++	async model( config, modelId ) {
++		if ( ! config ) {
++			throw new NotConnectedError( 'Connect Sample Both to use its models.' );
++		}
++		const listed = SAMPLE_BOTH_AI_MODELS.find( ( { id } ) => id === modelId )!;
++		return {
++			piProvider: 'sample-both',
++			apiKey: credential( config ),
++			requestModelId: 'qwen2.5:0.5b',
++			model: {
++				id: listed.id,
++				name: listed.label(),
++				api: 'openai-completions',
++				provider: 'sample-both',
++				baseUrl: 'http://127.0.0.1:11500/v1',
++				reasoning: false,
++				input: [ 'text' ],
++				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
++				contextWindow: 32_768,
++				maxTokens: 2048,
++			},
++		};
++	},
++	async generateImages( config, requests, onResult ) {
++		if ( ! config ) {
++			throw new NotConnectedError( 'Connect Sample Both to generate images.' );
++		}
++		return Promise.all(
++			requests.map( async ( { prompt }, index ) => {
++				const response = await fetch( `${ SAMPLE_BOTH_URL }/images`, {
++					method: 'POST',
++					headers: {
++						Authorization: `Bearer ${ credential( config ) }`,
++						'Content-Type': 'application/json',
++					},
++					body: JSON.stringify( { prompt } ),
++				} );
++				const result = response.ok
++					? {
++							ok: true,
++							bytes: Uint8Array.from( atob( ( await response.json() ).png ), ( c ) =>
++								c.charCodeAt( 0 )
++							),
++					  }
++					: { ok: false, error: `Sample Both answered ${ response.status }` };
++				onResult?.( index, result );
++				return result;
++			} )
++		);
++	},
++};
+diff --git a/packages/providers/sample-both/config.ts b/packages/providers/sample-both/config.ts
+new file mode 100644
+index 000000000..d8e5e5060
+--- /dev/null
++++ b/packages/providers/sample-both/config.ts
+@@ -0,0 +1,17 @@
++import { z } from 'zod';
++
++export const sampleBothConfigSchema = z.discriminatedUnion( 'method', [
++	z.object( { method: z.literal( 'api-key' ), apiKey: z.string().min( 1 ) } ),
++	z.object( {
++		method: z.literal( 'sign-in' ),
++		accessToken: z.string().min( 1 ),
++		refreshToken: z.string().min( 1 ),
++		// When the access token stops working; the refresh token renews it.
++		accessTokenExpiresAt: z.number(),
++		account: z.string(),
++		// The models the account's plan runs.
++		models: z.array( z.string() ),
++	} ),
++] );
++
++export type SampleBothConfig = z.infer< typeof sampleBothConfigSchema >;
+diff --git a/packages/providers/sample-both/descriptor.ts b/packages/providers/sample-both/descriptor.ts
+new file mode 100644
+index 000000000..214544cab
+--- /dev/null
++++ b/packages/providers/sample-both/descriptor.ts
+@@ -0,0 +1,76 @@
++import { __ } from '@wordpress/i18n';
++import { z } from 'zod';
++import { previewApiKey } from '../api-key';
++import { defineProvider, type AiModel } from '../types';
++import { sampleBothConfigSchema } from './config';
++
++export const SAMPLE_BOTH_URL = 'http://127.0.0.1:11600';
++
++export const SAMPLE_BOTH_AI_MODELS = [
++	{ id: 'both-small', label: () => 'Both Small', supportsImages: false },
++	{ id: 'both-large', label: () => 'Both Large', supportsImages: false },
++] as const satisfies readonly AiModel[];
++
++type SampleBothModelId = ( typeof SAMPLE_BOTH_AI_MODELS )[ number ][ 'id' ];
++
++export const sampleBothConnectInput = () =>
++	z.object( {
++		apiKey: z
++			.string()
++			.trim()
++			.min( 1, __( 'API key is required' ) )
++			.meta( { title: __( 'Sample Both API key' ), writeOnly: true } ),
++	} );
++
++// A site on Sample Both.
++export interface SampleBothSite {
++	id: string;
++	name: string;
++	url: string;
++}
++
++export const sampleBothProvider = defineProvider( {
++	id: 'sample-both',
++	label: 'Sample Both',
++	description: () => __( 'Chat with Sample Both models and publish static copies of your sites.' ),
++	account: {
++		configSchema: sampleBothConfigSchema,
++		methods: [
++			{ id: 'sign-in', label: () => __( 'Sign in' ), kind: 'loopback' },
++			{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: sampleBothConnectInput },
++		],
++		describe: ( config ) =>
++			config.method === 'api-key'
++				? { method: config.method, summary: previewApiKey( config.apiKey ) }
++				: {
++						method: config.method,
++						summary: config.account,
++						models: config.models.filter( ( id ): id is SampleBothModelId =>
++							SAMPLE_BOTH_AI_MODELS.some( ( model ) => model.id === id )
++						),
++				  },
++		remember: () => undefined,
++	},
++	ai: { models: SAMPLE_BOTH_AI_MODELS, defaultModel: 'both-small' },
++	sites: {
++		pull: false,
++		selective: false,
++		content: 'static',
++		newSite: 'create',
++		intro: {
++			title: () => __( 'Publish to Sample Both' ),
++			description: () => __( 'Publish a static copy of your site to Sample Both.' ),
++			learnMoreUrl: SAMPLE_BOTH_URL,
++		},
++		describe: ( site: SampleBothSite ) => ( {
++			details: [],
++			links: [ { title: __( 'Open site' ), url: site.url } ],
++		} ),
++		issue: () => null,
++		withDetails: ( connections, sites ) =>
++			connections.map( ( connection ) => ( {
++				...connection,
++				...sites.find( ( site ) => site.id === connection.id ),
++			} ) ),
++	},
++} );
+diff --git a/packages/providers/sample-both/services.ts b/packages/providers/sample-both/services.ts
+new file mode 100644
+index 000000000..75b78024d
+--- /dev/null
++++ b/packages/providers/sample-both/services.ts
+@@ -0,0 +1,11 @@
++import { defineServices } from '../types';
++import { sampleBothAccount } from './account';
++import { sampleBothAi } from './ai';
++import { sampleBothProvider } from './descriptor';
++import { sampleBothSites } from './sites';
++
++export const services = defineServices( sampleBothProvider, {
++	account: sampleBothAccount,
++	ai: sampleBothAi,
++	sites: sampleBothSites,
++} );
+diff --git a/packages/providers/sample-both/sites.ts b/packages/providers/sample-both/sites.ts
+new file mode 100644
+index 000000000..d2541e7a2
+--- /dev/null
++++ b/packages/providers/sample-both/sites.ts
+@@ -0,0 +1,47 @@
++import { NotConnectedError, RemoteSiteError } from '../errors';
++import { SAMPLE_BOTH_URL, type SampleBothSite, type sampleBothProvider } from './descriptor';
++import type { SampleBothConfig } from './config';
++import type { ServicesOf } from '../types';
++
++async function call< T >(
++	config: SampleBothConfig | undefined,
++	route: string,
++	init: RequestInit = {}
++) {
++	if ( ! config ) {
++		throw new NotConnectedError( 'Connect Sample Both to publish sites.' );
++	}
++	const token = config.method === 'api-key' ? config.apiKey : config.accessToken;
++	const response = await fetch( `${ SAMPLE_BOTH_URL }${ route }`, {
++		...init,
++		headers: { Authorization: `Bearer ${ token }`, 'Content-Type': 'application/json' },
++	} );
++	if ( response.status === 401 ) {
++		throw new NotConnectedError( 'Your Sample Both sign-in no longer works. Connect it again.' );
++	}
++	if ( ! response.ok ) {
++		throw new RemoteSiteError( `Sample Both answered ${ response.status }`, 'upload' );
++	}
++	return ( await response.json() ) as T;
++}
++
++export const sampleBothSites: ServicesOf< typeof sampleBothProvider >[ 'sites' ] = {
++	list: ( config ) => call< SampleBothSite[] >( config, '/sites' ),
++	create: ( config, { name } ) =>
++		call< SampleBothSite >( config, '/sites', {
++			method: 'POST',
++			body: JSON.stringify( { name } ),
++		} ),
++	async push( config, site, content, _options, onStatus ) {
++		if ( content.kind !== 'files' ) {
++			throw new Error( 'Sample Both publishes a static export.' );
++		}
++		for ( const [ index, file ] of content.files.entries() ) {
++			onStatus( { phase: 'uploading', progress: ( index / content.files.length ) * 100 } );
++			await call( config, `/sites/${ site.id }/files/${ encodeURIComponent( file.path ) }`, {
++				method: 'PUT',
++				body: ( await file.read() ) as BodyInit,
++			} );
++		}
++	},
++};
+diff --git a/packages/providers/sample-chat/account.ts b/packages/providers/sample-chat/account.ts
+new file mode 100644
+index 000000000..27386cd69
+--- /dev/null
++++ b/packages/providers/sample-chat/account.ts
+@@ -0,0 +1,27 @@
++import { __ } from '@wordpress/i18n';
++import { ConnectError } from '../errors';
++import { sampleChatConnectInput, type sampleChatProvider } from './descriptor';
++import type { ServicesOf } from '../types';
++
++export const SAMPLE_CHAT_API_URL = 'http://127.0.0.1:11500/v1';
++
++// Listing models costs nothing. A 401 means the key is rejected; a key that can't be checked
++// (the service is down, any other status) is accepted.
++export const sampleChatAccount: ServicesOf< typeof sampleChatProvider >[ 'account' ] = {
++	async connect( _method, input ) {
++		const parsed = sampleChatConnectInput().safeParse( input );
++		if ( ! parsed.success ) {
++			throw new ConnectError( parsed.error.issues[ 0 ].message );
++		}
++		const { apiKey } = parsed.data;
++		const response = await fetch( `${ SAMPLE_CHAT_API_URL }/models`, {
++			headers: { Authorization: `Bearer ${ apiKey }` },
++		} ).catch( () => undefined );
++		if ( response?.status === 401 ) {
++			throw new ConnectError(
++				__( 'Sample Chat rejected this API key. Check the key and try again.' )
++			);
++		}
++		return { method: 'api-key', apiKey };
++	},
++};
+diff --git a/packages/providers/sample-chat/ai.ts b/packages/providers/sample-chat/ai.ts
+new file mode 100644
+index 000000000..16c232e4a
+--- /dev/null
++++ b/packages/providers/sample-chat/ai.ts
+@@ -0,0 +1,36 @@
++import { NotConnectedError } from '../errors';
++import { SAMPLE_CHAT_API_URL } from './account';
++import { SAMPLE_CHAT_AI_MODELS, type sampleChatProvider } from './descriptor';
++import type { AiConnection, ServicesOf } from '../types';
++
++// The service names its model differently from Studio's id.
++const UPSTREAM_MODEL_IDS: Record< string, string > = { 'sample-qwen': 'qwen2.5:0.5b' };
++
++export const sampleChatAi: ServicesOf< typeof sampleChatProvider >[ 'ai' ] = {
++	async model( config, modelId ): Promise< AiConnection > {
++		if ( ! config ) {
++			throw new NotConnectedError( 'Connect Sample Chat with an API key.' );
++		}
++		const listed = SAMPLE_CHAT_AI_MODELS.find( ( { id } ) => id === modelId );
++		if ( ! listed ) {
++			throw new Error( `Sample Chat does not serve ${ modelId }` );
++		}
++		return {
++			piProvider: 'sample-chat',
++			apiKey: config.apiKey,
++			requestModelId: UPSTREAM_MODEL_IDS[ modelId ],
++			model: {
++				id: listed.id,
++				name: listed.label(),
++				api: 'openai-completions',
++				provider: 'sample-chat',
++				baseUrl: SAMPLE_CHAT_API_URL,
++				reasoning: false,
++				input: [ 'text' ],
++				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
++				contextWindow: 32_768,
++				maxTokens: 2048,
++			},
++		};
++	},
++};
+diff --git a/packages/providers/sample-chat/config.ts b/packages/providers/sample-chat/config.ts
+new file mode 100644
+index 000000000..0f89e549d
+--- /dev/null
++++ b/packages/providers/sample-chat/config.ts
+@@ -0,0 +1,6 @@
++import { z } from 'zod';
++
++export const sampleChatConfigSchema = z.object( {
++	method: z.literal( 'api-key' ),
++	apiKey: z.string().min( 1 ),
++} );
+diff --git a/packages/providers/sample-chat/descriptor.ts b/packages/providers/sample-chat/descriptor.ts
+new file mode 100644
+index 000000000..4eef6c393
+--- /dev/null
++++ b/packages/providers/sample-chat/descriptor.ts
+@@ -0,0 +1,45 @@
++import { __ } from '@wordpress/i18n';
++import { z } from 'zod';
++import { previewApiKey } from '../api-key';
++import { defineProvider, type AiModel } from '../types';
++import { sampleChatConfigSchema } from './config';
++
++export const SAMPLE_CHAT_AI_MODELS = [
++	{ id: 'sample-qwen', label: () => 'Sample Qwen', supportsImages: false },
++] as const satisfies readonly AiModel[];
++
++export const sampleChatConnectInput = () =>
++	z.object( {
++		apiKey: z
++			.string()
++			.trim()
++			.min( 1, __( 'API key is required' ) )
++			.meta( {
++				title: __( 'Sample Chat API key' ),
++				description: __( 'Sent to the Sample Chat service as a bearer token.' ),
++				examples: [ 'sample-…' ],
++				writeOnly: true,
++			} ),
++	} );
++
++export const sampleChatProvider = defineProvider( {
++	id: 'sample-chat',
++	label: 'Sample Chat',
++	description: () => __( 'Use the Sample Chat models with an API key.' ),
++	account: {
++		configSchema: sampleChatConfigSchema,
++		methods: [
++			{
++				id: 'api-key',
++				label: () => __( 'API key' ),
++				kind: 'form',
++				input: sampleChatConnectInput,
++			},
++		],
++		describe: ( { apiKey } ) => ( { method: 'api-key', summary: previewApiKey( apiKey ) } ),
++	},
++	ai: {
++		models: SAMPLE_CHAT_AI_MODELS,
++		defaultModel: 'sample-qwen',
++	},
++} );
+diff --git a/packages/providers/sample-chat/services.ts b/packages/providers/sample-chat/services.ts
+new file mode 100644
+index 000000000..4684ee776
+--- /dev/null
++++ b/packages/providers/sample-chat/services.ts
+@@ -0,0 +1,9 @@
++import { defineServices } from '../types';
++import { sampleChatAccount } from './account';
++import { sampleChatAi } from './ai';
++import { sampleChatProvider } from './descriptor';
++
++export const services = defineServices( sampleChatProvider, {
++	account: sampleChatAccount,
++	ai: sampleChatAi,
++} );
+diff --git a/packages/providers/sample-chat/tests/provider.test.ts b/packages/providers/sample-chat/tests/provider.test.ts
+new file mode 100644
+index 000000000..36fea97b9
+--- /dev/null
++++ b/packages/providers/sample-chat/tests/provider.test.ts
+@@ -0,0 +1,73 @@
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { ConnectError, NotConnectedError } from '../../errors';
++import { sampleChatAccount } from '../account';
++import { sampleChatAi } from '../ai';
++
++afterEach( () => {
++	vi.unstubAllGlobals();
++} );
++
++describe( 'sample-chat account', () => {
++	const connect = ( response: Partial< Response > | Error ) => {
++		const fetchMock =
++			response instanceof Error
++				? vi.fn().mockRejectedValue( response )
++				: vi.fn().mockResolvedValue( response );
++		vi.stubGlobal( 'fetch', fetchMock );
++		return { fetchMock, result: sampleChatAccount.connect( 'api-key', { apiKey: ' key-1234 ' } ) };
++	};
++
++	it( 'checks the key against the models list and stores it trimmed', async () => {
++		const { fetchMock, result } = connect( { ok: true, status: 200 } );
++
++		await expect( result ).resolves.toEqual( { method: 'api-key', apiKey: 'key-1234' } );
++		expect( fetchMock ).toHaveBeenCalledWith(
++			'http://127.0.0.1:11500/v1/models',
++			expect.objectContaining( { headers: { Authorization: 'Bearer key-1234' } } )
++		);
++	} );
++
++	it( 'refuses a key the service rejects with a 401', async () => {
++		await expect( connect( { ok: false, status: 401 } ).result ).rejects.toBeInstanceOf(
++			ConnectError
++		);
++	} );
++
++	it.each( [ 500, 'offline' ] )( 'accepts a key it can’t check (%s)', async ( failure ) => {
++		const response =
++			typeof failure === 'number' ? { ok: false, status: failure } : new Error( failure );
++
++		await expect( connect( response ).result ).resolves.toMatchObject( { apiKey: 'key-1234' } );
++	} );
++} );
++
++describe( 'sample-chat ai', () => {
++	it( 'asks to connect without a config', async () => {
++		await expect( sampleChatAi.model( undefined, 'sample-qwen', {} ) ).rejects.toBeInstanceOf(
++			NotConnectedError
++		);
++	} );
++
++	it( 'serves Sample Qwen over chat completions, under the service’s model name', async () => {
++		const connection = await sampleChatAi.model(
++			{ method: 'api-key', apiKey: 'key-1234' },
++			'sample-qwen',
++			{}
++		);
++
++		expect( connection ).toMatchObject( {
++			piProvider: 'sample-chat',
++			apiKey: 'key-1234',
++			requestModelId: 'qwen2.5:0.5b',
++			model: {
++				id: 'sample-qwen',
++				api: 'openai-completions',
++				baseUrl: 'http://127.0.0.1:11500/v1',
++				input: [ 'text' ],
++				reasoning: false,
++				contextWindow: 32_768,
++				maxTokens: 2048,
++			},
++		} );
++	} );
++} );
+diff --git a/packages/providers/sample-hosting/account.ts b/packages/providers/sample-hosting/account.ts
+new file mode 100644
+index 000000000..f73b000d6
+--- /dev/null
++++ b/packages/providers/sample-hosting/account.ts
+@@ -0,0 +1,43 @@
++import { __ } from '@wordpress/i18n';
++import { ConnectError } from '../errors';
++import { SampleHostingApiError, startDeviceLogin, waitForDeviceLogin } from './api';
++import type { sampleHostingProvider } from './descriptor';
++import type { ServicesOf } from '../types';
++
++export const sampleHostingAccount: ServicesOf< typeof sampleHostingProvider >[ 'account' ] = {
++	async start() {
++		const login = await startDeviceLogin();
++		return {
++			url: login.verificationUrl,
++			code: login.userCode,
++			handoff: {
++				deviceCode: login.deviceCode,
++				interval: String( login.interval ),
++				expiresAt: String( login.expiresAt ),
++			},
++		};
++	},
++
++	// Takes back the handoff `start` returned, and resolves once the user approves the sign-in.
++	async connect( _method, input ) {
++		const interval = Number( input.interval );
++		const expiresAt = Number( input.expiresAt );
++		if ( ! input.deviceCode || ! expiresAt || ! interval ) {
++			throw new ConnectError( __( 'Start signing in to Sample Hosting again.' ) );
++		}
++		try {
++			return await waitForDeviceLogin( { deviceCode: input.deviceCode, interval, expiresAt } );
++		} catch ( error ) {
++			if ( error instanceof SampleHostingApiError && error.status === 403 ) {
++				throw new ConnectError( __( 'Sample Hosting sign-in was declined.' ), 'denied' );
++			}
++			if ( error instanceof SampleHostingApiError && error.status === 400 ) {
++				throw new ConnectError( __( 'The Sample Hosting sign-in expired. Try again.' ), 'invalid' );
++			}
++			throw new ConnectError(
++				error instanceof Error ? error.message : String( error ),
++				'unverified'
++			);
++		}
++	},
++};
+diff --git a/packages/providers/sample-hosting/api.ts b/packages/providers/sample-hosting/api.ts
+new file mode 100644
+index 000000000..9a7727ab3
+--- /dev/null
++++ b/packages/providers/sample-hosting/api.ts
+@@ -0,0 +1,143 @@
++import type { SampleSite } from './descriptor';
++import type { PushContent } from '../types';
++
++const API_URL = 'http://127.0.0.1:11600';
++
++export class SampleHostingApiError extends Error {
++	constructor(
++		message: string,
++		readonly status: number,
++		readonly code?: string
++	) {
++		super( message );
++		this.name = 'SampleHostingApiError';
++	}
++}
++
++async function request< T >(
++	route: string,
++	{
++		token,
++		method = 'GET',
++		body,
++		signal,
++	}: { token?: string; method?: string; body?: unknown; signal?: AbortSignal } = {}
++): Promise< T > {
++	const response = await fetch( `${ API_URL }${ route }`, {
++		method,
++		headers: {
++			...( token ? { Authorization: `Bearer ${ token }` } : {} ),
++			...( body === undefined ? {} : { 'Content-Type': 'application/json' } ),
++		},
++		body: body === undefined ? undefined : JSON.stringify( body ),
++		signal,
++	} );
++	const json = await response.json().catch( () => null );
++	if ( ! response.ok ) {
++		throw new SampleHostingApiError(
++			`Sample Hosting request failed with status ${ response.status }`,
++			response.status,
++			json?.error
++		);
++	}
++	return json as T;
++}
++
++// A pending device sign-in: the user approves `userCode` at `verificationUrl`.
++interface DeviceAuthorization {
++	deviceCode: string;
++	userCode: string;
++	verificationUrl: string;
++	// Seconds between checks for the approval.
++	interval: number;
++	// When the code stops working, in milliseconds since the epoch.
++	expiresAt: number;
++}
++
++export async function startDeviceLogin(): Promise< DeviceAuthorization > {
++	const data = await request< {
++		device_code: string;
++		user_code: string;
++		verification_uri: string;
++		interval: number;
++		expires_in: number;
++	} >( '/device/code', { method: 'POST' } );
++	return {
++		deviceCode: data.device_code,
++		userCode: data.user_code,
++		verificationUrl: data.verification_uri,
++		interval: data.interval,
++		expiresAt: Date.now() + data.expires_in * 1000,
++	};
++}
++
++function sleep( ms: number ): Promise< void > {
++	return new Promise( ( resolve ) => setTimeout( resolve, ms ) );
++}
++
++// Polls until the user approves the code. Throws a 403 error when they decline it, and a 400 one
++// when the code is unknown or has expired.
++export async function waitForDeviceLogin( login: {
++	deviceCode: string;
++	interval: number;
++	expiresAt: number;
++} ): Promise< { accessToken: string; account: string } > {
++	while ( Date.now() < login.expiresAt ) {
++		try {
++			const data = await request< { access_token: string; account: string } >( '/device/token', {
++				method: 'POST',
++				body: { device_code: login.deviceCode },
++			} );
++			return { accessToken: data.access_token, account: data.account };
++		} catch ( error ) {
++			if ( ! ( error instanceof SampleHostingApiError ) || error.status !== 428 ) {
++				throw error;
++			}
++		}
++		await sleep( login.interval * 1000 );
++	}
++	throw new SampleHostingApiError( 'Sample Hosting sign-in expired.', 400, 'expired' );
++}
++
++export function listSites( token: string ): Promise< SampleSite[] > {
++	return request< SampleSite[] >( '/sites', { token } );
++}
++
++export function createSite( token: string, name: string ): Promise< SampleSite > {
++	return request< SampleSite >( '/sites', { token, method: 'POST', body: { name } } );
++}
++
++// Sends the archive as the request body: the page hands over a Blob, and Node a readable stream,
++// which fetch sends as it reads it.
++export async function uploadArchive(
++	token: string,
++	siteId: string,
++	archive: Extract< PushContent, { kind: 'archive' } >,
++	signal?: AbortSignal
++): Promise< void > {
++	const { file, name, size } = archive;
++	const isBlob = file instanceof Blob;
++	try {
++		const response = await fetch( `${ API_URL }/sites/${ encodeURIComponent( siteId ) }/archive`, {
++			method: 'PUT',
++			headers: {
++				Authorization: `Bearer ${ token }`,
++				'x-archive-name': name,
++				...( isBlob ? {} : { 'Content-Length': String( size ) } ),
++			},
++			body: file as BodyInit,
++			...( isBlob ? {} : { duplex: 'half' } ),
++			signal,
++		} as RequestInit );
++		if ( ! response.ok ) {
++			throw new SampleHostingApiError(
++				`Sample Hosting request failed with status ${ response.status }`,
++				response.status
++			);
++		}
++	} finally {
++		if ( ! isBlob ) {
++			( file as { destroy?: () => void } ).destroy?.();
++		}
++	}
++}
+diff --git a/packages/providers/sample-hosting/config.ts b/packages/providers/sample-hosting/config.ts
+new file mode 100644
+index 000000000..07746b494
+--- /dev/null
++++ b/packages/providers/sample-hosting/config.ts
+@@ -0,0 +1,9 @@
++import { z } from 'zod';
++
++export const sampleHostingConfigSchema = z.object( {
++	accessToken: z.string().min( 1 ),
++	// The email the account signed in with, shown as the connected account's summary.
++	account: z.string(),
++} );
++
++export type SampleHostingConfig = z.infer< typeof sampleHostingConfigSchema >;
+diff --git a/packages/providers/sample-hosting/descriptor.ts b/packages/providers/sample-hosting/descriptor.ts
+new file mode 100644
+index 000000000..661e8eeaa
+--- /dev/null
++++ b/packages/providers/sample-hosting/descriptor.ts
+@@ -0,0 +1,47 @@
++import { __ } from '@wordpress/i18n';
++import { defineProvider } from '../types';
++import { sampleHostingConfigSchema } from './config';
++
++const SAMPLE_HOSTING_URL = 'http://127.0.0.1:11600';
++
++// A site on Sample Hosting.
++export interface SampleSite {
++	id: string;
++	name: string;
++	url: string;
++}
++
++export const sampleHostingProvider = defineProvider( {
++	id: 'sample-hosting',
++	label: 'Sample Hosting',
++	description: () => __( 'Publish your sites to Sample Hosting.' ),
++	learnMoreUrl: SAMPLE_HOSTING_URL,
++	account: {
++		configSchema: sampleHostingConfigSchema,
++		methods: [ { id: 'sign-in', label: () => __( 'Sign in' ), kind: 'device' } ],
++		describe: ( { account } ) => ( { method: 'sign-in', summary: account } ),
++	},
++	sites: {
++		pull: false,
++		selective: false,
++		content: 'archive',
++		newSite: 'create',
++		intro: {
++			title: () => __( 'Publish to Sample Hosting' ),
++			description: () => __( 'Publish a copy of your site to a Sample Hosting site.' ),
++			learnMoreUrl: SAMPLE_HOSTING_URL,
++		},
++		describe: ( site: SampleSite ) => ( {
++			details: [],
++			links: [ { title: __( 'Open site' ), url: site.url } ],
++		} ),
++		issue: () => null,
++		// A site renamed on Sample Hosting shows its new name; one gone from the account keeps the
++		// stored one.
++		withDetails: ( connections, sites ) =>
++			connections.map( ( connection ) => ( {
++				...connection,
++				...sites.find( ( site ) => site.id === connection.id ),
++			} ) ),
++	},
++} );
+diff --git a/packages/providers/sample-hosting/services.ts b/packages/providers/sample-hosting/services.ts
+new file mode 100644
+index 000000000..7bb130d7a
+--- /dev/null
++++ b/packages/providers/sample-hosting/services.ts
+@@ -0,0 +1,9 @@
++import { defineServices } from '../types';
++import { sampleHostingAccount } from './account';
++import { sampleHostingProvider } from './descriptor';
++import { sampleHostingSites } from './sites';
++
++export const services = defineServices( sampleHostingProvider, {
++	account: sampleHostingAccount,
++	sites: sampleHostingSites,
++} );
+diff --git a/packages/providers/sample-hosting/sites.ts b/packages/providers/sample-hosting/sites.ts
+new file mode 100644
+index 000000000..7c87a61b6
+--- /dev/null
++++ b/packages/providers/sample-hosting/sites.ts
+@@ -0,0 +1,56 @@
++import { __ } from '@wordpress/i18n';
++import { NotConnectedError, RemoteSiteError } from '../errors';
++import { createSite, listSites, SampleHostingApiError, uploadArchive } from './api';
++import type { SampleHostingConfig } from './config';
++import type { sampleHostingProvider } from './descriptor';
++import type { ServicesOf } from '../types';
++
++function requireToken( config: SampleHostingConfig | undefined ): string {
++	if ( ! config?.accessToken ) {
++		throw new NotConnectedError( __( 'Connect Sample Hosting to publish sites.' ) );
++	}
++	return config.accessToken;
++}
++
++async function step< T >( message: string, code: string, run: () => Promise< T > ): Promise< T > {
++	try {
++		return await run();
++	} catch ( error ) {
++		if ( error instanceof NotConnectedError ) {
++			throw error;
++		}
++		if ( error instanceof SampleHostingApiError && error.status === 401 ) {
++			throw new NotConnectedError(
++				__( 'Your Sample Hosting sign-in no longer works. Connect Sample Hosting again.' )
++			);
++		}
++		throw new RemoteSiteError(
++			error instanceof SampleHostingApiError ? `${ message }: ${ error.message }` : message,
++			code,
++			{ cause: error }
++		);
++	}
++}
++
++export const sampleHostingSites: ServicesOf< typeof sampleHostingProvider >[ 'sites' ] = {
++	list: ( config ) =>
++		step( __( 'Failed to load your Sample Hosting sites' ), 'site_fetch', () =>
++			listSites( requireToken( config ) )
++		),
++
++	create: ( config, { name } ) =>
++		step( __( 'Failed to create the Sample Hosting site' ), 'site_create', () =>
++			createSite( requireToken( config ), name )
++		),
++
++	async push( config, site, content, _options, onStatus, signal ) {
++		const token = requireToken( config );
++		if ( content.kind !== 'archive' ) {
++			throw new Error( 'Sample Hosting publishes a WordPress archive.' );
++		}
++		await step( __( 'Failed to publish to Sample Hosting' ), 'upload', async () => {
++			onStatus( { phase: 'uploading' } );
++			await uploadArchive( token, String( site.id ), content, signal );
++		} );
++	},
++};
+diff --git a/packages/providers/sample-hosting/tests/provider.test.ts b/packages/providers/sample-hosting/tests/provider.test.ts
+new file mode 100644
+index 000000000..a9a4a56b1
+--- /dev/null
++++ b/packages/providers/sample-hosting/tests/provider.test.ts
+@@ -0,0 +1,163 @@
++import { Readable } from 'node:stream';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { ConnectError, NotConnectedError } from '../../errors';
++import { sampleHostingAccount } from '../account';
++import { sampleHostingSites } from '../sites';
++
++const json = ( status: number, body: unknown = {} ) =>
++	new Response( JSON.stringify( body ), { status } );
++
++const config = { accessToken: 'token-1', account: 'ada@example.com' };
++
++const handoff = () => ( {
++	deviceCode: 'device-1',
++	interval: '0.001',
++	expiresAt: String( Date.now() + 60_000 ),
++} );
++
++afterEach( () => {
++	vi.unstubAllGlobals();
++} );
++
++describe( 'sample-hosting account', () => {
++	it( 'starts a device sign-in', async () => {
++		vi.stubGlobal(
++			'fetch',
++			vi.fn( async () =>
++				json( 200, {
++					device_code: 'device-1',
++					user_code: 'ABCD-1234',
++					verification_uri: 'http://127.0.0.1:11600/activate',
++					interval: 5,
++					expires_in: 900,
++				} )
++			)
++		);
++
++		await expect( sampleHostingAccount.start!( 'sign-in', { hostId: 'host' } ) ).resolves.toEqual( {
++			url: 'http://127.0.0.1:11600/activate',
++			code: 'ABCD-1234',
++			handoff: { deviceCode: 'device-1', interval: '5', expiresAt: expect.any( String ) },
++		} );
++	} );
++
++	it( 'waits for the approval, then stores the token and the account', async () => {
++		const answers = [
++			json( 428, { error: 'authorization_pending' } ),
++			json( 200, { access_token: 'token-1', account: 'ada@example.com' } ),
++		];
++		const fetchMock = vi.fn( async () => answers.shift()! );
++		vi.stubGlobal( 'fetch', fetchMock );
++
++		await expect( sampleHostingAccount.connect( 'sign-in', handoff() ) ).resolves.toEqual( config );
++		expect( fetchMock ).toHaveBeenCalledTimes( 2 );
++		expect( fetchMock ).toHaveBeenCalledWith(
++			'http://127.0.0.1:11600/device/token',
++			expect.objectContaining( { body: JSON.stringify( { device_code: 'device-1' } ) } )
++		);
++	} );
++
++	it( 'says when the sign-in is declined or the code expired', async () => {
++		vi.stubGlobal(
++			'fetch',
++			vi.fn( async () => json( 403, { error: 'denied' } ) )
++		);
++		await expect( sampleHostingAccount.connect( 'sign-in', handoff() ) ).rejects.toMatchObject( {
++			reason: 'denied',
++		} );
++
++		vi.stubGlobal(
++			'fetch',
++			vi.fn( async () => json( 400, { error: 'expired' } ) )
++		);
++		await expect( sampleHostingAccount.connect( 'sign-in', handoff() ) ).rejects.toBeInstanceOf(
++			ConnectError
++		);
++	} );
++} );
++
++describe( 'sample-hosting sites', () => {
++	it( 'lists the account’s sites and asks to connect again when the token no longer works', async () => {
++		const sites = [ { id: 's1', name: 'Blog', url: 'http://blog.example' } ];
++		const fetchMock = vi.fn( async () => json( 200, sites ) );
++		vi.stubGlobal( 'fetch', fetchMock );
++
++		await expect( sampleHostingSites.list( config ) ).resolves.toEqual( sites );
++		expect( fetchMock ).toHaveBeenCalledWith(
++			'http://127.0.0.1:11600/sites',
++			expect.objectContaining( { headers: { Authorization: 'Bearer token-1' } } )
++		);
++
++		vi.stubGlobal(
++			'fetch',
++			vi.fn( async () => json( 401 ) )
++		);
++		await expect( sampleHostingSites.list( config ) ).rejects.toBeInstanceOf( NotConnectedError );
++		await expect( sampleHostingSites.list( undefined ) ).rejects.toBeInstanceOf(
++			NotConnectedError
++		);
++	} );
++
++	it( 'creates a site named after the local one', async () => {
++		const fetchMock = vi.fn( async () =>
++			json( 201, { id: 's2', name: 'Shop', url: 'http://shop.example' } )
++		);
++		vi.stubGlobal( 'fetch', fetchMock );
++
++		await expect( sampleHostingSites.create( config, { name: 'Shop' } ) ).resolves.toEqual( {
++			id: 's2',
++			name: 'Shop',
++			url: 'http://shop.example',
++		} );
++		expect( fetchMock ).toHaveBeenCalledWith(
++			'http://127.0.0.1:11600/sites',
++			expect.objectContaining( { method: 'POST', body: JSON.stringify( { name: 'Shop' } ) } )
++		);
++	} );
++
++	it.each( [
++		[ 'a Blob', () => new Blob( [ 'archive' ] ) ],
++		[ 'a stream', () => Readable.from( [ Buffer.from( 'archive' ) ] ) ],
++	] )( 'uploads the archive from %s with its file name', async ( _kind, file ) => {
++		const fetchMock = vi.fn( async () => json( 200, { ok: true, size: 7 } ) );
++		vi.stubGlobal( 'fetch', fetchMock );
++		const onStatus = vi.fn();
++
++		await sampleHostingSites.push(
++			config,
++			{ id: 's1', name: 'Blog' },
++			{ kind: 'archive', file: file(), name: 'blog.tar.gz', size: 7 },
++			{ optionsToSync: [ 'all' ] } as never,
++			onStatus
++		);
++
++		expect( onStatus ).toHaveBeenCalledWith( { phase: 'uploading' } );
++		expect( fetchMock ).toHaveBeenCalledWith(
++			'http://127.0.0.1:11600/sites/s1/archive',
++			expect.objectContaining( {
++				method: 'PUT',
++				headers: expect.objectContaining( {
++					Authorization: 'Bearer token-1',
++					'x-archive-name': 'blog.tar.gz',
++				} ),
++			} )
++		);
++	} );
++
++	it( 'asks to connect again when the push is refused with a 401', async () => {
++		vi.stubGlobal(
++			'fetch',
++			vi.fn( async () => json( 401 ) )
++		);
++
++		await expect(
++			sampleHostingSites.push(
++				config,
++				{ id: 's1', name: 'Blog' },
++				{ kind: 'archive', file: new Blob( [ 'archive' ] ), name: 'blog.tar.gz', size: 7 },
++				{ optionsToSync: [ 'all' ] } as never,
++				() => undefined
++			)
++		).rejects.toBeInstanceOf( NotConnectedError );
++	} );
++} );

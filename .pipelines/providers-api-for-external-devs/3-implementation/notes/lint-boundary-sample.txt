@@ -1,0 +1,18 @@
+# ESLint on sample-chat with boundary violations added, lint configuration unchanged
+
+Added to descriptor.ts: import { sampleChatAi } from './ai';  Added to ai.ts: import os from 'node:os'; import { readAiSettings } from '@studio/common/lib/ai-settings';
+$ npx eslint packages/providers/sample-chat
+
+packages/providers/sample-chat/ai.ts
+  1:1  error  'node:os' import is restricted from being used by a pattern. @studio/providers runs in the browser too; keep Node APIs out                no-restricted-imports
+  2:1  error  '@studio/common/lib/ai-settings' import is restricted from being used by a pattern. @studio/providers imports no other workspace package  no-restricted-imports
+
+packages/providers/sample-chat/descriptor.ts
+  5:30  error  Unexpected path "./ai" imported in restricted zone. The @studio/providers entry imports only the files it is made of  import-x/no-restricted-paths
+
+✖ 3 problems (3 errors, 0 warnings)
+
+
+## Restored
+$ npx eslint packages/providers/sample-chat
+exit: 0

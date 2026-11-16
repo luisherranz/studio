@@ -1,0 +1,115 @@
+// Throwaway: seeds, writes and reads Studio's provider storage with whichever build runs it, so two
+// builds can be compared over the same config directory. ROUNDTRIP_MODE: seed | write | read.
+import fs from 'fs';
+import { it } from 'vitest';
+import {
+	persistSelectedAiProvider,
+	readAiSettings,
+	setAiProvider,
+} from '@studio/common/lib/ai-settings';
+import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import {
+	readUserPreferences,
+	writeUserPreferences,
+} from '@studio/common/lib/user-settings/user-preferences';
+import {
+	resolveSessionModelForProvider,
+	resolveSessionProvider,
+} from '@studio/agent/protocol/sessions/model';
+
+const LATER = Date.now() + 365 * 24 * 3600_000;
+const IDS = [ 'wpcom', 'anthropic', 'openai', 'gemini', 'github-copilot', 'spacefast' ] as const;
+// A chat pinned to Anthropic and one of its models, as older builds record it.
+const ENTRIES = [
+	{
+		type: 'custom',
+		customType: 'studio.session_context',
+		data: { provider: 'anthropic-api-key', model: 'claude-opus-5-5' },
+	},
+] as never;
+const wpcomSite = {
+	id: 101,
+	localSiteId: 'local-1',
+	name: 'Hosted',
+	url: 'https://hosted.example.com',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable' as const,
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+};
+
+it( 'round trip', async () => {
+	const mode = process.env.ROUNDTRIP_MODE;
+	if ( mode === 'seed' ) {
+		await writeProviderConfig( 'wpcom', {
+			token: 'tok-wpcom',
+			expiresAt: LATER,
+			user: { id: 7, email: 'me@example.com', displayName: 'Me' },
+		} );
+		await writeProviderConfig( 'anthropic', { method: 'api-key', apiKey: 'sk-ant-api03-legacy-1234' } );
+		await writeProviderConfig( 'openai', {
+			method: 'chatgpt',
+			clientId: 'oaiapp_1',
+			accessToken: 'access',
+			refreshToken: 'refresh',
+			accessTokenExpiresAt: LATER,
+			email: 'me@openai.example',
+		} );
+		await writeProviderConfig( 'gemini', { method: 'api-key', apiKey: 'AIza-old-key-1234' } );
+		await writeProviderConfig( 'github-copilot', {
+			method: 'github',
+			githubToken: 'gh',
+			copilotToken: 'cp',
+			copilotTokenExpiresAt: LATER,
+			login: 'octo',
+			models: [ 'claude-sonnet-5-5' ],
+		} );
+		await writeProviderConfig( 'spacefast', { apiKey: 'sfa_key', expiresAt: null } );
+		await persistSelectedAiProvider( 'anthropic' );
+		await rememberRemoteSite( 'wpcom', 'local-1', wpcomSite, 'push' );
+		await rememberRemoteSite(
+			'spacefast',
+			'local-1',
+			{ id: 'space-1', name: 'Space One', url: 'https://one.spacefast.site', slug: 'one', teamId: 't1' },
+			'push'
+		);
+		await writeUserPreferences( { defaultHostingProvider: 'spacefast' }, { sitesRoot: '/tmp' } );
+	}
+	if ( mode === 'write' ) {
+		await setAiProvider( 'openai' );
+		await writeProviderConfig( 'gemini', { method: 'api-key', apiKey: 'AIza-new-key-9999' } );
+		await rememberRemoteSite(
+			'spacefast',
+			'local-2',
+			{ id: 'space-2', name: 'Space Two', url: 'https://two.spacefast.site', slug: 'two', teamId: 't1' },
+			'push'
+		);
+		await writeUserPreferences( { defaultHostingProvider: 'wpcom' }, { sitesRoot: '/tmp' } );
+	}
+	const configs = Object.fromEntries(
+		await Promise.all( IDS.map( async ( id ) => [ id, await readProviderConfig( id ) ] ) )
+	);
+	const preferences = await readUserPreferences( { sitesRoot: '/tmp' } );
+	fs.writeFileSync(
+		process.env.ROUNDTRIP_OUT!,
+		JSON.stringify(
+			{
+				settings: await readAiSettings(),
+				configs,
+				sites: {
+					wpcom: await getRemoteSites( 'wpcom' ),
+					spacefast: await getRemoteSites( 'spacefast' ),
+				},
+				defaultHostingProvider: preferences.defaultHostingProvider,
+				pinned: {
+					provider: resolveSessionProvider( ENTRIES ),
+					model: resolveSessionModelForProvider( ENTRIES, 'anthropic' ),
+				},
+			},
+			null,
+			2
+		)
+	);
+} );

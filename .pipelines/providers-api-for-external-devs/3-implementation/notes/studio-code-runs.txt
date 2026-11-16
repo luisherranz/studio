@@ -1,0 +1,123 @@
+# studio code and studio push with the sample providers (sample-providers.patch), DEV_CONFIG_DIR=/tmp/studio-providers-api-for-external-devs-implementer
+# Driven in a pty by a script; lines below are excerpts of each ANSI-stripped transcript.
+# Chats reach a local Ollama (qwen2.5:0.5b) on 127.0.0.1:11500; hosting goes to a local fake service on 127.0.0.1:11600.
+
+## 1-connect-chat
+ ⏺ Hello, I'm WordPress Studio, your local WordPress agent and builder. 
+ Choose how to connect 
+ 6. Sample Chat 
+[drive] matched '6\\. Sample Chat[\\s\\S]*t\\s', sending '\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\r'
+[drive] matched 'API key', sending 'sample-key-1234\r'
+[drive] matched 'Sample Chat', sending ''
+or future use): ************[key typed]✔ Sample Chat API key (saved for future use): ***************
+[drive] matched '[\\s\\S]{200}', sending 'Reply with exactly one short sentence saying hello.\r'
+[drive] matched '(?i)hello[\\s\\S]{40}', sending ''
+
+## 2-restart-chat-model-provider
+ █ ▐█▙ ███  ▐█ ▐ Sample Qwen · Sample Chat 
+[drive] matched '〉', sending 'Reply with one short sentence that says hi.\r'
+ ⏺ Hello! How can I assist you today? 
+[drive] matched '⏺[^\\n]{5,}', sending ''
+[drive] matched '[\\s\\S]{30}', sending '/model\r'
+
+## 3-model-provider-disconnect
+ █ ▐█▙ ███  ▐█ ▐ Sample Qwen · Sample Chat 
+[drive] matched '〉', sending '/model'
+[drive] matched '→ model[\\s\\S]{5}', sending '\r'
+ Select a model 
+ → 1. Sample Qwen (current) 
+[drive] matched 'Sample Qwen \\(current\\)[\\s\\S]{20}', sending '\r'
+ → Sample Qwen (current) 
+[drive] matched '〉|Sample Qwen|model', sending '/provider'
+[drive] matched '→ provider[\\s\\S]{5}', sending '\r'
+ Select an AI provider 
+ 6. Sample Chat (current) 
+[drive] matched 'Sample Chat[\\s\\S]{30}', sending '\r'
+
+## 4-provider-disconnect
+ █ ▐█▙ ███  ▐█ ▐ Sample Qwen · Sample Chat 
+[drive] matched '〉', sending '/provider'
+[drive] matched '→ provider[\\s\\S]{5}', sending '\r'
+ Select an AI provider 
+ 6. Sample Chat (current) 
+[drive] matched '6\\. Sample Chat \\(current\\)[\\s\\S]*sample-cha[\\s\\S]*t\\s', sending '\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B'
+ → 6. Sample Chat (current) 
+[drive] matched '→ 6\\. Sample Chat', sending '\r'
+ → Sample Chat (current) 
+[drive] matched '〉', sending '/disconnect'
+[drive] matched '→ disconnect[\\s\\S]{5}', sending ' sample-chat\r'
+ Disconnected Sample Chat. 
+[drive] matched 'Disconnected Sample Chat[\\s\\S]{20}', sending ''
+
+## 5-connect
+[drive] matched '〉', sending '/connect'
+[drive] matched '→ connect[\\s\\S]{5}', sending '\r'
+ 7. Sample Chat 
+ 8. Sample Hosting 
+[drive] matched 'Sample Hosting[\\s\\S]*sample-hos[\\s\\S]*ting\\s', sending '\x1b'
+[drive] matched '→ connect[\\s\\S]{5}', sending ' sample-hosting\r'
+[<uApprove the code 7DEE-SW83 at http://127.0.0.1:11600/verify
+ ⏺ Connected Sample Hosting. 
+[drive] matched 'Connected Sample Hosting[\\s\\S]{5}', sending '/connect'
+[drive] matched '→ connect[\\s\\S]{5}', sending ' sample-chat\r'
+[drive] matched 'API key', sending 'sample-key-5678\r'
+[key typed]✔ Sample Chat API key (saved for future use): ***************
+ ⏺ Connected Sample Chat. 
+[drive] matched 'Connected Sample Chat[\\s\\S]{5}', sending ''
+
+## 7-loopback
+ █ ▐█▙ ███  ▐█ ▐ Sample Qwen · Sample Chat 
+[drive] matched '〉', sending '/connect'
+[drive] matched '→ connect[\\s\\S]{5}', sending ' sample-both\r'
+[<u? How do you want to connect Sample Both?
+[drive] matched 'How do you want to connect Sample Both[\\s\\S]*API key', sending '\r'
+✔ How do you want to connect Sample Both? Sign in
+Sign in at http://127.0.0.1:11600/authorize?redirect_uri=http%3A%2F%2F127.0.0.1%3A55597%2Fauth%2Fcallback&state=3c6c3dc6-9e5b-42ee-9300-56876c9af75a
+ ⏺ Connected Sample Both. 
+[drive] matched 'Connected Sample Both[\\s\\S]{5}', sending '/model'
+[drive] matched '→ model[\\s\\S]{5}', sending '\r'
+ Select a model 
+ → 1. Sample Qwen (current) 
+[drive] matched 'Select a model[\\s\\S]{60}', sending '\x1b'
+[drive] matched '〉', sending ''
+
+## 8-narrowed-model
+ █ ▐█▙ ███  ▐█ ▐ Sample Qwen · Sample Chat 
+[drive] matched '〉', sending '/provider'
+[drive] matched '→ provider[\\s\\S]{5}', sending '\r'
+ Select an AI provider 
+ 6. Sample Chat (current) 
+ 7. Sample Both 
+[drive] matched '7\\. Sample Both[\\s\\S]*sample-bot[\\s\\S]*h\\s', sending '\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B'
+ → 7. Sample Both 
+[drive] matched '→ 7\\. Sample Both', sending '\r'
+ → Sample Both 
+[drive] matched '〉', sending '/model'
+ ↓ select site █ ▐█▙ ███  ▐█ ▐ Both Small · Sample Both 
+[drive] matched '→ model[\\s\\S]{5}', sending '\r'
+ Select a model 
+ → 1. Both Small (current) 
+[drive] matched 'Select a model[\\s\\S]{60}', sending '\x1b'
+[drive] matched '〉', sending ''
+
+## 9-unsupported-api
+ █ ▐█▙ ███  ▐█ ▐ Both Small · Sample Both 
+[drive] matched '〉', sending '/provider'
+[drive] matched '→ provider[\\s\\S]{5}', sending '\r'
+ Select an AI provider 
+ 6. Sample Chat 
+ 7. Sample Both (current) 
+[drive] matched '6\\. Sample Chat[\\s\\S]*sample-cha[\\s\\S]*t\\s', sending '\x1b[B\x1b[B\x1b[B\x1b[B\x1b[B'
+ → 6. Sample Chat 
+[drive] matched '→ 6\\. Sample Chat', sending '\r'
+[drive] matched '〉', sending 'Say hi.\r'
+ ↓ select site █ ▐█▙ ███  ▐█ ▐ Sample Qwen · Sample Chat 
+ ⏺ Studio doesn’t run the mistral-conversations API, which sample-qwen connects over. 
+[drive] matched '(?i)(doesn.t run|error)[\\s\\S]{30}', sending ''
+
+## studio push --path <site> --remote-site sample-hosting:site-1
+Database exported
+Site exported successfully
+20% · Uploading archive…
+Successfully pushed to Existing site (http://127.0.0.1:11600/sites/site-1/)
+fake host: stored push-7e3d9924-d628-433d-bd4c-f085a541c277-1794842706951.tar.gz 13340072 bytes for site-1

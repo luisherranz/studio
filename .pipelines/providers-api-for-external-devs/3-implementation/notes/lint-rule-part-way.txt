@@ -1,0 +1,32 @@
+# ESLint on sample-chat part-way through being added, in this worktree (repo lint configuration unchanged)
+
+## 1. Folder present, not registered (its two lines removed from registry.ts)
+$ npx eslint packages/providers/sample-chat/descriptor.ts
+
+packages/providers/sample-chat/descriptor.ts
+  25:1  error  The "sample-chat" provider isn’t registered: append its descriptor to the list in registry.ts  studio/provider-registration
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+## 2. Registered, no services.ts (moved away)
+$ npx eslint packages/providers/registry.ts
+
+packages/providers/registry.ts
+  23:2  error  The "sample-chat" provider has no services: add sample-chat/services.ts, which exports `services` from defineServices()  studio/provider-registration
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+## 3. services.ts exports its services under another name
+$ npx eslint packages/providers/sample-chat/services.ts
+
+packages/providers/sample-chat/services.ts
+  6:1  error  Export the provider’s services as `export const services = defineServices( descriptor, { … } )`: the services entry reads that export  studio/provider-registration
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+## 4. Restored
+$ npx eslint packages/providers/registry.ts packages/providers/sample-chat
+exit: 0

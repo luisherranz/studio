@@ -1,0 +1,54 @@
+$ git status --short (sample providers added, uncommitted)
+ M packages/providers/registry.ts
+?? packages/providers/sample-chat/account.ts
+?? packages/providers/sample-chat/ai.ts
+?? packages/providers/sample-chat/config.ts
+?? packages/providers/sample-chat/descriptor.ts
+?? packages/providers/sample-chat/services.ts
+?? packages/providers/sample-chat/tests/provider.test.ts
+?? packages/providers/sample-hosting/account.ts
+?? packages/providers/sample-hosting/api.ts
+?? packages/providers/sample-hosting/config.ts
+?? packages/providers/sample-hosting/descriptor.ts
+?? packages/providers/sample-hosting/services.ts
+?? packages/providers/sample-hosting/sites.ts
+?? packages/providers/sample-hosting/tests/provider.test.ts
+
+$ npm run typecheck
+> typecheck
+> npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json --noEmit
+> wp-studio@2.2.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/local@0.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/mcp-ui@0.1.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/static@0.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> studio-app@2.2.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/ui@0.1.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/capture-harness@1.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/agent@1.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/blueprints@1.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/common@1.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/design-md@1.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+> @studio/providers@1.0.0 typecheck
+> tsc -p tsconfig.json --noEmit
+exit: 0
+
+$ npx eslint packages/providers/registry.ts packages/providers/sample-chat packages/providers/sample-hosting
+exit: 0
+
+$ npm run knip
+
+> knip
+> knip
+
+exit: 0

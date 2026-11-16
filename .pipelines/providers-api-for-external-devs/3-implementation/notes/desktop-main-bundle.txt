@@ -1,0 +1,12 @@
+# Desktop main bundle (electron-vite) with the sample providers registered
+$ (cd apps/studio && npx electron-vite build --config ./electron.vite.config.ts --outDir=/tmp/.../desktop-out)
+$ grep -l <a string from each folder's services> desktop-out/main/*.js
+WordPress.com returned no token -> index.js 
+Anthropic rejected this API key -> index.js 
+ChatGPT sign-in could not be completed -> index.js 
+Google rejected this API key -> index.js 
+GitHub sign-in was declined -> index.js 
+Spacefast sign-in was declined -> index.js 
+Sample Chat rejected this API key -> index.js 
+Sample Hosting sign-in was declined -> index.js 
+Sample Both sign-in could not be completed -> index.js 

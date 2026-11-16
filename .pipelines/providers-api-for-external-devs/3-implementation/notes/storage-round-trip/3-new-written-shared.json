@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "authToken": {
+    "accessToken": "tok-wpcom",
+    "expiresIn": 31536000,
+    "expirationTime": 1826376852224,
+    "id": 7,
+    "email": "me@example.com",
+    "displayName": "Me"
+  },
+  "connectedWpcomSites": {
+    "7": [
+      {
+        "id": 101,
+        "localSiteId": "local-1",
+        "name": "Hosted",
+        "url": "https://hosted.example.com",
+        "isStaging": false,
+        "isPressable": false,
+        "syncSupport": "already-connected",
+        "lastPullTimestamp": null,
+        "lastPushTimestamp": "2026-11-16T14:54:12.281Z"
+      }
+    ]
+  },
+  "providerConfigs": {
+    "openai": {
+      "method": "chatgpt",
+      "clientId": "oaiapp_1",
+      "accessToken": "access",
+      "refreshToken": "refresh",
+      "accessTokenExpiresAt": 1826376852224,
+      "email": "me@openai.example"
+    },
+    "github-copilot": {
+      "method": "github",
+      "githubToken": "gh",
+      "copilotToken": "cp",
+      "copilotTokenExpiresAt": 1826376852224,
+      "login": "octo",
+      "models": [
+        "claude-sonnet-5-5"
+      ]
+    },
+    "spacefast": {
+      "apiKey": "sfa_key",
+      "expiresAt": null
+    },
+    "gemini": {
+      "method": "api-key",
+      "apiKey": "AIza-new-key-9999"
+    }
+  },
+  "remoteSites": {
+    "local-1": [
+      {
+        "provider": "spacefast",
+        "site": {
+          "id": "space-1",
+          "name": "Space One",
+          "url": "https://one.spacefast.site",
+          "slug": "one",
+          "teamId": "t1"
+        },
+        "lastPushTimestamp": "2026-11-16T14:54:12.287Z",
+        "lastPullTimestamp": null
+      }
+    ],
+    "local-2": [
+      {
+        "provider": "spacefast",
+        "site": {
+          "id": "space-2",
+          "name": "Space Two",
+          "url": "https://two.spacefast.site",
+          "slug": "two",
+          "teamId": "t1"
+        },
+        "lastPushTimestamp": "2026-11-16T15:05:09.418Z",
+        "lastPullTimestamp": null
+      }
+    ]
+  },
+  "aiProvider": "openai",
+  "anthropicApiKey": "sk-ant-api03-legacy-1234"
+}
