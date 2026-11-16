@@ -214,10 +214,20 @@ function readLmStudioFacts( models: LmStudioModel[], name: string ): ModelFacts 
 	};
 }
 
+// LM Studio loads a chat model on a request for it, with the idle TTL and auto-evict it gives models
+// loaded that way. Its load API would keep the model loaded until someone unloads it.
+async function loadLmStudioModel( baseUrl: string, apiKey: string | undefined, name: string ) {
+	await readJson( `${ baseUrl }/chat/completions`, apiKey, LOAD_TIMEOUT_MS, {
+		model: name,
+		messages: [ { role: 'user', content: 'Hi' } ],
+		max_tokens: 1,
+	} );
+}
+
 /**
  * What the server says about each model: its `/v1/models` entry first, then the product API its
- * root answers. `context` asks for the context it runs the model with, which on Ollama loads the
- * model first.
+ * root answers. `context` asks for the context it runs the model with, which on Ollama and LM
+ * Studio loads a model that isn't loaded first.
  */
 export async function readModelFacts(
 	baseUrl: string,
@@ -242,7 +252,15 @@ export async function readModelFacts(
 			} ) )
 		);
 	}
-	const lmStudio = await readLmStudioModels( root, apiKey );
+	let lmStudio = await readLmStudioModels( root, apiKey );
+	const unloaded = entries.filter( ( { id } ) => {
+		const facts = lmStudio && readLmStudioFacts( lmStudio, id );
+		return context && facts?.chat && ! facts.context;
+	} );
+	if ( unloaded.length ) {
+		await Promise.all( unloaded.map( ( { id } ) => loadLmStudioModel( baseUrl, apiKey, id ) ) );
+		lmStudio = ( await readLmStudioModels( root, apiKey ) ) ?? lmStudio;
+	}
 	return entries.map( ( { id }, index ) => ( {
 		...fromEntries[ index ],
 		...( lmStudio && readLmStudioFacts( lmStudio, id ) ),

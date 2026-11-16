@@ -37,27 +37,25 @@ const SERVERS: Record< string, Record< string, unknown > > = {
 	},
 	'lm-studio': {
 		'/v1/models': { data: [ { id: 'google/gemma-3-4b' }, { id: 'qwen/qwen3-8b' } ] },
-		'/api/v1/models': {
-			models: [
-				{
-					type: 'llm',
-					key: 'google/gemma-3-4b',
-					loaded_instances: [ { id: 'google/gemma-3-4b', config: { context_length: 8192 } } ],
-					capabilities: { vision: true, trained_for_tool_use: true },
-				},
-				{
-					type: 'llm',
-					key: 'qwen/qwen3-8b',
-					loaded_instances: [],
-					capabilities: { vision: false, trained_for_tool_use: true },
-				},
-			],
-		},
 	},
 	unknown: {
 		'/v1/models': { data: [ { id: 'some-model' } ] },
 	},
 };
+
+// LM Studio's models, which `/api/v1/models` lists with an instance once loaded.
+const LM_STUDIO_MODELS = [
+	{
+		type: 'llm',
+		key: 'google/gemma-3-4b',
+		capabilities: { vision: true, trained_for_tool_use: true },
+	},
+	{
+		type: 'llm',
+		key: 'qwen/qwen3-8b',
+		capabilities: { vision: false, trained_for_tool_use: true },
+	},
+];
 
 function retryable( errorMessage: string ): boolean {
 	return isRetryableAssistantError( {
@@ -70,7 +68,8 @@ function retryable( errorMessage: string ): boolean {
 
 describe( 'local-llm ai', () => {
 	const fetchMock = vi.fn();
-	// Ollama loads a model on a request that names only it, and only then reports its context.
+	// Ollama loads a model on a request that names only it, LM Studio on a chat request for it, and
+	// each reports its context only then. LM Studio's load API would load it too.
 	let loaded: string[];
 
 	const serve = ( server: keyof typeof SERVERS ) =>
@@ -78,13 +77,27 @@ describe( 'local-llm ai', () => {
 			const { pathname } = new URL( url );
 			const model = init?.body ? JSON.parse( String( init.body ) ).model : undefined;
 			const answers = SERVERS[ server ];
-			if ( server === 'ollama' && pathname === '/api/generate' ) {
+			if (
+				( server === 'ollama' && pathname === '/api/generate' ) ||
+				( server === 'lm-studio' &&
+					[ '/v1/chat/completions', '/api/v1/models/load' ].includes( pathname ) )
+			) {
 				loaded.push( model );
-				return json( 200, { done_reason: 'load' } );
+				return json( 200, {} );
 			}
 			if ( server === 'ollama' && pathname === '/api/ps' ) {
 				return json( 200, {
 					models: loaded.map( ( name ) => ( { name, model: name, context_length: 4096 } ) ),
+				} );
+			}
+			if ( server === 'lm-studio' && pathname === '/api/v1/models' ) {
+				return json( 200, {
+					models: LM_STUDIO_MODELS.map( ( entry ) => ( {
+						...entry,
+						loaded_instances: loaded.includes( entry.key )
+							? [ { id: entry.key, config: { context_length: 8192 } } ]
+							: [],
+					} ) ),
 				} );
 			}
 			const answer = answers[ model ? `${ pathname } ${ model }` : pathname ];
@@ -171,28 +184,45 @@ describe( 'local-llm ai', () => {
 		}
 	);
 
-	it( 'loads an Ollama model before reading the context it runs with', async () => {
-		serve( 'ollama' );
-
-		await localLlmAi.model( config( 'http://localhost:11434/v1' ), 'local-llm/qwen3:0.6b', {} );
-
-		expect( loaded ).toEqual( [ 'qwen3:0.6b' ] );
-	} );
-
-	it( 'counts a model as text-only with no exact window when the server doesn’t say', async () => {
-		for ( const server of [ 'unknown', 'lm-studio' ] as const ) {
+	it.each( [
+		[ 'ollama', 'qwen3:0.6b', '/api/generate' ],
+		[ 'lm-studio', 'qwen/qwen3-8b', '/v1/chat/completions' ],
+	] as const )(
+		'has %s load a model before reading the context it runs it with',
+		async ( server, name, loadPath ) => {
 			serve( server );
-			const name = server === 'unknown' ? 'some-model' : 'qwen/qwen3-8b';
 
 			const connection = await localLlmAi.model(
-				{ ...config( 'http://localhost:1234/v1' ), apiKey: 'secret' },
+				config( 'http://localhost:1234/v1' ),
 				`local-llm/${ name }`,
 				{}
 			);
 
-			expect( connection.exactContextWindow ).toBeUndefined();
-			expect( connection ).toMatchObject( { apiKey: 'secret', model: { input: [ 'text' ] } } );
+			expect( loaded ).toEqual( [ name ] );
+			expect( connection.exactContextWindow ).toBeDefined();
+			const requests = fetchMock.mock.calls.map( ( [ url, init ] ) => ( {
+				path: new URL( url ).pathname,
+				body: init?.body && JSON.parse( String( init.body ) ),
+			} ) );
+			// LM Studio keeps a model loaded through its load API until someone unloads it.
+			expect( requests.map( ( { path } ) => path ) ).not.toContain( '/api/v1/models/load' );
+			expect( requests.find( ( { path } ) => path === loadPath )?.body ).toMatchObject( {
+				model: name,
+			} );
 		}
+	);
+
+	it( 'counts a model as text-only with no exact window when the server doesn’t say', async () => {
+		serve( 'unknown' );
+
+		const connection = await localLlmAi.model(
+			{ ...config( 'http://localhost:1234/v1' ), apiKey: 'secret' },
+			'local-llm/some-model',
+			{}
+		);
+
+		expect( connection.exactContextWindow ).toBeUndefined();
+		expect( connection ).toMatchObject( { apiKey: 'secret', model: { input: [ 'text' ] } } );
 	} );
 
 	describe( 'rewriteError', () => {
