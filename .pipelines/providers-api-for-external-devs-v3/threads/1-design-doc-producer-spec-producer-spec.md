@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved
 opener: design-doc-producer
 recipient: spec-producer
 about: spec

@@ -341,16 +341,16 @@ design-doc-decision-12: Every value of the contract is explained where it is dec
 The contract stops asking for values Studio doesn't read:
 - the provider-level learn-more URL (Studio reads only the sites intro's);
 - the model connection's cost and its separate pi provider name (design-doc-decision-4);
-- a connect failure's reason outside the Studio sign-in, whose sign-in analytics is its only reader.
+- a connect failure's reason outside the Studio sign-in. The Studio sign-in keeps it: its analytics record the reason, and the Desktop app shows "Authorization denied" for a declined sign-in, without reporting it as an error.
 
 User-facing `ConnectError` messages and the remote error codes that analytics records stay.
 **Alternatives:**
-- Remove the connect failure's reason from every provider, the Studio sign-in included. WordPress.com's sign-in analytics reads it.
+- Remove the connect failure's reason from every provider, the Studio sign-in included. WordPress.com's sign-in analytics and the Desktop app's declined sign-in read it.
 - Start reading the values instead, such as recording every provider's connect failure reason in analytics. No source shows anyone needing them.
 **Trade-offs:** Providers that set a reason today (OpenAI, GitHub Copilot and Spacefast) stop setting it. Studio's own loopback sign-in reports a declined sign-in by its message alone.
 **Claims:**
 - observed: Studio reads only the sites intro's learn-more URL. `git grep -n learnMoreUrl -- apps packages ':(exclude)packages/providers'` finds readers only at `apps/ui/src/features/sync/publish-panel/index.tsx:485`, `connected-view.tsx:191` and `connect-account.tsx:29`.
-- observed: `ConnectError.reason` is read only for the WordPress.com sign-in's analytics. Read `packages/common/lib/auth-tracks.ts:120-127`, called from `apps/studio/src/lib/deeplink/handlers/auth.ts:45`, `apps/cli/lib/wpcom-auth.ts:50` and `apps/local/src/index.ts:692`, each after connecting WordPress.com, whose `account.ts:17,49` sets the reason.
+- observed: `ConnectError.reason` is read only for the WordPress.com sign-in. Read `packages/common/lib/auth-tracks.ts:120-127`, called from `apps/studio/src/lib/deeplink/handlers/auth.ts:45`, `apps/cli/lib/wpcom-auth.ts:50` and `apps/local/src/index.ts:692`, each after connecting WordPress.com, whose `account.ts:17,41,49` sets the reason. It feeds the analytics' failure reason, and the Desktop dialog and error reporting for a declined sign-in (`apps/studio/src/lib/deeplink/handlers/auth.ts:44-61`). See also `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/connect-failure-reason.txt`.
 - observed: the readers of each contract value: `.pipelines/providers-api-for-external-devs-v3/2-design-doc/design-doc/contract-readers.md`.
 
 design-doc-decision-13: The README guides a developer through the whole API, and every provider follows it
@@ -480,6 +480,7 @@ No new libraries. The contract keeps depending on zod (schemas), pi-ai's model t
   - WordPress.com's web sync and its stored connections are unchanged;
   - static-export providers stay out.
 - existing test `apps/cli/ai/tests/auth.test.ts` — design-doc-decision-2, design-doc-decision-4, spec-acceptance-criterion-6. Image generation skips a config that can't generate images and takes the next connected provider. Chats on a provider that isn't connected say how to connect it.
+- existing tests `apps/studio/src/lib/deeplink/tests/auth.test.ts`, `apps/local/src/tests/auth-tracks.test.ts` and `packages/common/lib/tests/auth-tracks.test.ts` — design-doc-decision-3, design-doc-decision-12, spec-acceptance-criterion-18 — the Studio sign-in's failure reasons still reach its analytics, and a declined sign-in still shows "Authorization denied" in the Desktop app.
 - existing tests that the seven providers still connect, chat, pick models, generate images and publish as before — design-doc-decision-13, spec-acceptance-criterion-18:
   - each provider's tests: `packages/providers/*/tests/`, `packages/providers/wpcom/ai/tests/` and `packages/providers/wpcom/sites/tests/`;
   - `apps/cli/commands/tests/push.test.ts`;
