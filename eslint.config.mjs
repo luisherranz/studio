@@ -29,7 +29,8 @@ const PROVIDERS_SERVICES = {
 	message: 'Surfaces read @studio/providers; its services run in the backends and the agent.',
 };
 
-// The entries surfaces read, and the files they are made of.
+// The entries surfaces read, and the files they are made of: the shared ones, and any provider
+// folder's descriptor and config.
 const PROVIDERS_DESCRIPTORS = [
 	'index.ts',
 	'wpcom.ts',
@@ -450,14 +451,16 @@ export default defineConfig(
 					zones: [
 						{
 							target: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
-							from: 'packages/providers',
-							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
-								file.startsWith( '*/' )
-									? [ 'wpcom', 'anthropic', 'openai', 'gemini', 'github-copilot', 'spacefast' ].map(
-											( dir ) => `./${ file.replaceAll( '*', dir ) }`
-									  )
-									: [ `./${ file }` ]
-							),
+							from: path.join( import.meta.dirname, 'packages/providers/**' ),
+							// One pattern, since every exception must be a glob when `from` is.
+							except: [
+								path.join(
+									import.meta.dirname,
+									`packages/providers/{${ PROVIDERS_DESCRIPTORS.map( ( file ) =>
+										file.replace( /\.ts$/, '' )
+									).join( ',' ) }}.ts`
+								),
+							],
 							message: 'The @studio/providers entry imports only the files it is made of.',
 						},
 					],
