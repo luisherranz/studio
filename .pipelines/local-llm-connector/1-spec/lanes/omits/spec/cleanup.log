@@ -1,0 +1,10 @@
+$ studio site stop --all (isolated configuration)
+Failed to stop sites: connect EINVAL <worktree>/.pipelines/local-llm-connector/1-spec/lanes/omits/spec/runtime-home/daemon/daemon.sock - Local (undefined:undefined)
+
+$ stop observed studio ui process
+
+$ studio site stop --all (same isolated settings and daemon directory, shorter .d path alias)
+No sites are currently running
+
+$ confirm UI listener stopped
+No listener on observed UI port

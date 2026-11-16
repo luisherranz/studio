@@ -1,0 +1,28 @@
+studio code
+
+AI agent for building and managing WordPress sites
+
+Commands:
+  studio code [message]     Start an interactive AI chat to build WordPress sites[default]
+  studio code sessions      List, resume, and delete code sessions
+
+Positionals:
+  message  Initial message to send to the AI agent                                [string]
+
+Options:
+      --json  Output events as NDJSON to stdout (headless mode) [boolean] [default: false]
+  -h, --help  Show help                                                          [boolean]
+
+Examples:
+  studio code                              Start an interactive chat with the AI agent
+  studio code "Create a portfolio site"    Start the agent with an initial message
+  studio code --json "Add a contact page"  Run a single headless turn, printing NDJSON
+                                           events
+  studio code sessions list                List previous code sessions
+  studio code sessions resume latest       Resume the most recent session
+
+Studio Code is an AI agent that builds WordPress sites: it creates and manages local and
+remote sites, builds themes, writes code, generates content, and publishes to
+WordPress.com.
+
+Learn more: https://wordpress.studio/docs/studio-code/

@@ -1,0 +1,68 @@
+- group "Sites"
+  - button "Add site" [ref=e58]
+- button "Account" [ref=e59 expanded=false]
+- button "Settings" [ref=e60]
+- button "Show sidebar" [ref=e61 expanded=false]
+- button "Start here" [ref=e62]
+- dialog "Settings"
+  - tablist "Settings scope"
+    - tab "App" [ref=e63 selected=true]
+    - tab "Site" [ref=e64 disabled selected=false]
+  - group "Group"
+    - textbox "Search settings" [ref=e65]
+    - group "Group"
+  - tablist "Settings sections"
+    - tab "General" [ref=e66 selected=false]
+    - tab "Appearance" [ref=e67 selected=false]
+    - tab "Providers" [ref=e68 selected=true]
+    - tab "Agents" [ref=e69 selected=false]
+    - tab "Sharing" [ref=e70 selected=false]
+    - tab "Skills" [ref=e71 selected=false]
+    - tab "Instructions" [ref=e72 selected=false]
+    - tab "Keyboard" [ref=e73 selected=false]
+  - button "Back in settings" [ref=e74 disabled]
+  - heading "Providers" [level=1]
+  - button "Close settings" [ref=e75]
+  - group "Default AI provider"
+    - p "For working on sites."
+    - combobox "Default AI provider" [ref=e76 disabled expanded=false]
+    - textbox "textbox" [ref=e77 disabled]
+  - group "Default hosting provider"
+    - p "For publishing sites."
+    - combobox "Default hosting provider" [ref=e78 disabled expanded=false]
+    - textbox "textbox" [ref=e79 disabled]
+  - group "AI providers" [14 controls]
+    - p "Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key. Learn more…"
+    - button "Learn more…" [ref=e80]
+    - group "WordPress.com"
+      - p "Sign in to get a one-time grant of free AI credits."
+      - button "Connect to WordPress.com" [ref=e81]
+    - group "OpenAI"
+      - p "Sign in with ChatGPT or use an OpenAI API key."
+      - button "Connect" [ref=e91 expanded=true]
+    - group "How to connect"
+      - p "Create a key in the OpenAI Platform, then paste it below."
+      - link "OpenAI Platform" [ref=e92]
+    - group "OpenAI API key"
+      - p "Usage is billed through your OpenAI account."
+      - textbox "OpenAI API key" [ref=e93]
+      - button "Save" [ref=e94 disabled]
+      - button "Cancel" [ref=e95]
+    - group "Anthropic"
+      - p "Use an Anthropic API key or a Claude subscription token."
+      - button "Connect" [ref=e83 expanded=false]
+    - group "Google Gemini"
+      - p "Use Gemini with a Gemini API key."
+      - button "Connect" [ref=e96 expanded=false]
+    - group "GitHub Copilot"
+      - p "Sign in with a GitHub account that has Copilot access."
+      - button "Connect" [ref=e85]
+  - group "Hosting providers" [5 controls]
+    - p "Publish your site when it’s ready, or share a preview through WordPress.com. Learn more…"
+    - button "Learn more…" [ref=e86]
+    - group "WordPress.com"
+      - p "Publish new sites or update existing ones on WordPress.com or Pressable."
+      - button "Connect to WordPress.com" [ref=e87]
+    - group "Spacefast"
+      - p "Publish a static copy of your sites to a Spacefast Space."
+      - button "Connect" [ref=e88]
