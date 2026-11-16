@@ -1,5 +1,5 @@
 {
-  "target-phase": 2,
+  "target-phase": 4,
   "base-branch": "radical-pipelines",
   "worktree-folder-root": ".worktrees",
   "landing-commit-format": "{subject} (orchestrator)",
@@ -98,6 +98,13 @@
         "implementer",
         "reviewer"
       ]
+    },
+    "local-llm-servers": {
+      "text": "Local LLM servers to test against: Ollama (already installed), llama.cpp (`llama-server`), LM Studio and vLLM. The owner allows installing any of them that is missing, using them to test, and leaving them installed. Run your own instances on free ports with their data under `{studio-home}`; leave the owner's Ollama app on port 11434 and its `~/.ollama` folder alone. Download only very small models to test: free disk space is scarce. Keep RAM use low so the computer doesn't freeze. Stop every server you start before ending your turn.",
+      "profiles": [
+        "implementer",
+        "reviewer"
+      ]
     }
   },
   "variables": {
@@ -161,6 +168,7 @@
   },
   "owner-directions": [
     "No issue backs this pipeline: the owner chose to write the intent directly from the request.",
-    "Push the pipeline branch to the `fork` remote, https://github.com/luisherranz/studio.git (luisherranz/studio), instead of keeping it local."
+    "Push the pipeline branch to the `fork` remote, https://github.com/luisherranz/studio.git (luisherranz/studio), instead of keeping it local.",
+    "Continue the pipeline through implementation and review on its current base: do not merge newer `radical-pipelines` or `trunk` commits into it."
   ]
 }
