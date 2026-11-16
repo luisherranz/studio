@@ -1,7 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
+import {
+	isContextOverflow,
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+} from '@earendil-works/pi-ai';
 import {
 	createAgentSession,
 	createBashTool,
@@ -54,6 +59,47 @@ const STUDIO_COMPACTION_SETTINGS = {
 	reserveTokens: 16_384,
 	keepRecentTokens: 20_000,
 };
+
+/**
+ * The compaction settings for the connection. A window that is exact and smaller than the
+ * settings plan for gets them scaled to it, so a conversation compacts before a request outgrows
+ * it.
+ */
+function getCompactionSettings( { exactContextWindow, model }: AiConnection ) {
+	if ( ! exactContextWindow ) {
+		return STUDIO_COMPACTION_SETTINGS;
+	}
+	const quarter = Math.floor( model.contextWindow / 4 );
+	return {
+		enabled: true,
+		reserveTokens: Math.min( STUDIO_COMPACTION_SETTINGS.reserveTokens, quarter ),
+		keepRecentTokens: Math.min( STUDIO_COMPACTION_SETTINGS.keepRecentTokens, quarter ),
+	};
+}
+
+/**
+ * On a connection whose window is exact, a turn that still overflows once pi compacted ends with
+ * the connection's words, in place of pi's or the server's.
+ */
+function withOverflowWords( event: AgentSessionEvent, ai: AiConnection ): AgentSessionEvent {
+	const words = ai.exactContextWindow?.overflowMessage;
+	if ( ! words ) {
+		return event;
+	}
+	if ( event.type === 'compaction_end' && event.reason === 'overflow' && event.errorMessage ) {
+		return { ...event, errorMessage: undefined };
+	}
+	const last = event.type === 'agent_end' ? findLastAssistant( event.messages ) : undefined;
+	if ( event.type !== 'agent_end' || event.willRetry || ! last || ! isContextOverflow( last ) ) {
+		return event;
+	}
+	return {
+		...event,
+		messages: event.messages.map( ( message ) =>
+			message === last ? { ...last, errorMessage: words } : message
+		),
+	};
+}
 
 export interface StudioAgentTurnConfig {
 	prompt: string;
@@ -167,7 +213,7 @@ async function runAgentSessionTurn(
 					return;
 				}
 			}
-			config.onEvent( event );
+			config.onEvent( withOverflowWords( event, config.ai ) );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -244,7 +290,7 @@ async function createStudioAgentSession(
 		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( config.ai );
-	const settingsManager = createSettingsManager();
+	const settingsManager = createSettingsManager( config.ai );
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -359,11 +405,11 @@ function createProviderConfig( ai: AiConnection ): ProviderConfigInput {
 	};
 }
 
-function createSettingsManager(): SettingsManager {
+function createSettingsManager( ai: AiConnection ): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
-			compaction: STUDIO_COMPACTION_SETTINGS,
+			compaction: getCompactionSettings( ai ),
 		},
 		{ projectTrusted: false }
 	);
