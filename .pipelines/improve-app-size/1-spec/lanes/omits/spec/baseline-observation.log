@@ -1,0 +1,92 @@
+Observation commit: 1ff39049aa4d11a50519759d3d801b914722f942
+Command: ARTIFACTS_PATH=<support>/.metrics npx --no-install playwright test --config tools/metrics/playwright.metrics.config.ts app-size.test.ts --workers=1 --retries=0
+
+Running 1 test using 1 worker
+
+  ✓  1 tools/metrics/tests/app-size.test.ts:8:6 › App Size Metrics › measure packaged app size (204ms)
+
+  1 passed (472ms)
+
+app-size
+
+┌────────────┬─────────────┐
+│ (index)    │ value       │
+├────────────┼─────────────┤
+│ appSizeMac │ '806.47 MB' │
+└────────────┴─────────────┘
+
+Raw metric result from app-size.results.json:
+{"appSizeMac":845641998}
+Command: stat the complete generated ZIP
+{
+  "zip": "apps/studio/out/make/zip/darwin/arm64/Studio-darwin-arm64-2.2.0.zip",
+  "zipBytes": 351685241
+}
+
+Command: bundled studio-cli.sh --help (isolated config and daemon)
+WordPress Studio CLI
+
+Commands:
+  studio auth                        Manage authentication
+  studio code                        AI agent for building and managing WordPress sites
+  studio create                      Create a new site
+  studio list                        List sites
+  studio start                       Start site
+  studio stop                        Stop site(s)
+  studio delete [sites..]            Delete site
+  studio status                      Get status of site
+  studio push                        Push your local site to a WordPress.com site, or
+                                     publish it to Spacefast
+  studio pull                        Pull a WordPress.com or Pressable site to your local
+                                     site
+  studio import <import-file>        Import a backup file to site
+  studio export [export-file]        Export site to a backup file
+  studio export-static [output-dir]  Export site as static HTML files
+  studio ui                          Start the local Studio web UI and open it in your
+                                     browser
+  studio uninstall                   Uninstall the standalone Studio CLI
+  studio preview                     Manage preview sites
+  studio config                      Manage site configuration
+  studio wp                          WP-CLI
+  studio blueprint                   Browse and use blueprints
+  studio mcp                         MCP server for AI agents
+
+Options:
+  -p, --path     Path to the WordPress files         [string] [default: Current directory]
+  -v, --version  Show version number                                             [boolean]
+  -h, --help     Show help                                                       [boolean]
+
+Command: bundled studio-cli.sh create --name improve-app-size-baseline --path <isolated-site> --skip-browser --skip-log-details
+Dependencies updated
+Validating site configuration…
+Site configuration validated
+Creating site directory…
+Site directory created
+Copying bundled WordPress…
+WordPress files copied
+Setting up SQLite integration…
+SQLite integration configured
+Assigning port…
+Port assigned: 8881
+Saving site…
+Site created successfully
+Starting process daemon…
+Process daemon started
+Starting WordPress server…
+Checking PHP 8.4 binary…
+Starting WordPress server…
+WordPress server started
+
+Command: fetch the HTTP URL for the created site from its isolated CLI config; do not log config or credentials
+{
+  "siteCount": 1,
+  "httpStatus": 200,
+  "containsDefaultWordPressPost": true
+}
+
+Observation exit status: 0
+
+Cleanup command: bundled CLI stop --all with isolated config and daemon
+Stopping all WordPress servers…
+Successfully stopped 1 site
+Cleanup stop exit status: 0
