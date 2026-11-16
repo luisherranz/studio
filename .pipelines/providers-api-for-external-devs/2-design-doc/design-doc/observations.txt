@@ -1,0 +1,28 @@
+# Which providers renew a credential, and how they connect
+$ grep -rn "refresh" packages/providers/*/account.ts | grep "const refresh\|{ start, connect, refresh }"
+packages/providers/github-copilot/account.ts:155:const refresh: NonNullable< GithubCopilotAccount[ 'refresh' ] > = async ( config ) => {
+packages/providers/github-copilot/account.ts:164:export const githubCopilotAccount: GithubCopilotAccount = { start, connect, refresh };
+packages/providers/openai/account.ts:157:const refresh: NonNullable< OpenaiAccount[ 'refresh' ] > = async ( config ) => {
+packages/providers/openai/account.ts:178:export const openaiAccount: OpenaiAccount = { start, connect, refresh };
+
+$ grep -rn "kind: '" packages/providers/*/descriptor.ts
+packages/providers/spacefast/descriptor.ts:24:		methods: [ { id: 'sign-in', label: () => __( 'Connect' ), kind: 'device' } ],
+packages/providers/gemini/descriptor.ts:42:				kind: 'form',
+packages/providers/github-copilot/descriptor.ts:25:		methods: [ { id: 'github', label: () => __( 'Continue with GitHub' ), kind: 'device' } ],
+packages/providers/anthropic/descriptor.ts:63:				kind: 'form',
+packages/providers/anthropic/descriptor.ts:73:				kind: 'form',
+packages/providers/wpcom/descriptor.ts:71:		methods: [ { id: 'sign-in', label: () => __( 'Log in' ), kind: 'redirect' } ],
+packages/providers/openai/descriptor.ts:44:			{ id: 'chatgpt', label: () => __( 'ChatGPT plan' ), kind: 'loopback' },
+packages/providers/openai/descriptor.ts:48:				kind: 'form',
+(OpenAI's renewing config comes from its `chatgpt` loopback method; its form method stores an API key.)
+
+# Studio on the web neither renews nor forgets a rejected config
+$ grep -rn "forgetRejected\|refresh(" apps/static/src --include=*.ts | grep -v test
+(no matches)
+apps/static/src/agent/index.ts:227-249 (`readConfig`) parses the stored config and treats an expired one as not connected.
+
+# No workspace lints with a cache
+$ git grep -n -- "--cache" package.json 'apps/*/package.json' 'packages/*/package.json' 'tools/*/package.json'
+(no matches)
+$ grep '"lint"' packages/providers/package.json
+		"lint": "eslint .",
