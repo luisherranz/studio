@@ -1,0 +1,27 @@
+# LM Studio 0.4.28 and its bundled embedding model (2026-11-16)
+
+## The embedding model ships with LM Studio
+$ find ~/.lmstudio -maxdepth 6 -iname "*nomic*"
+~/.lmstudio/.internal/bundled-models/nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.Q4_K_M.gguf
+
+$ lms ls
+LLM           PARAMS    ARCH     SIZE         DEVICE
+qwen3-0.6b    0.6B      qwen3    522.64 MB    Local      (imported by an earlier reviewer from a local GGUF, under studio-test/)
+EMBEDDING                               PARAMS    ARCH          SIZE        DEVICE
+text-embedding-nomic-embed-text-v1.5              Nomic BERT    84.11 MB    Local
+
+So an LM Studio with no LLM downloaded yet has only text-embedding-nomic-embed-text-v1.5.
+
+## $ lms server start --port 11788
+## GET /v1/models
+{"data":[{"id":"qwen3-0.6b","object":"model","owned_by":"organization_owner"},{"id":"text-embedding-nomic-embed-text-v1.5","object":"model","owned_by":"organization_owner"}],"object":"list"}
+
+## GET /api/v1/models, each model's type
+qwen3-0.6b llm
+text-embedding-nomic-embed-text-v1.5 embedding
+
+## POST /v1/chat/completions {"model":"text-embedding-nomic-embed-text-v1.5","messages":[{"role":"user","content":"hi"}],"max_tokens":5}
+{"error":{"message":"No models loaded. Please load a model in the developer page or use the 'lms load' command.","type":"invalid_request_error","param":"model","code":null}}
+HTTP 400
+
+## $ lms server stop; the LM Studio service the probe started was stopped afterwards

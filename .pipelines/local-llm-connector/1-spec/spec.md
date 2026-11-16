@@ -4,7 +4,7 @@
 
 Studio Code chats only through the providers built into Studio: WordPress.com, OpenAI, Anthropic, Google Gemini and GitHub Copilot, each serving a fixed list of models. A person who runs models themselves, with Ollama, LM Studio, llama.cpp's `llama-server`, vLLM or another server of that kind, can't chat on them in Studio.
 
-The change adds one generic connector for those servers in the Desktop app, `studio ui` and `studio code`. The person gives Studio the server's address, and a key only when the server asks for one. Studio then offers the models that server serves and follows them as they change. Studio Code chats on the one the person picks, with no WordPress.com sign-in or AI credits needed. The connector works the same whichever product runs the server. It tells the person what is wrong when the server is stopped, refuses a model, or runs the model with too little context for Studio Code. Studio doesn't run the server or fetch its models.
+The change adds one generic connector for those servers in the Desktop app, `studio ui` and `studio code`. The person gives Studio the server's address, and a key only when the server asks for one. Studio then offers the models that server chats on and follows them as they change. Studio Code chats on the one the person picks, with no WordPress.com sign-in or AI credits needed. The connector works the same whichever product runs the server. It tells the person what is wrong when the server is stopped, refuses a model, or runs the model with too little context for Studio Code. Studio doesn't run the server or fetch its models.
 
 In this spec, a **local server** is a server the person runs that answers `GET <address>/v1/models` with the models it serves and `POST <address>/v1/chat/completions` with a chat reply. Ollama, LM Studio, `llama-server` and vLLM all document these two requests. A **local model** is a model a local server lists. **The connector** is what the person adds a local server through.
 
@@ -22,7 +22,7 @@ origin: from-intent Goal
 
 observed: `/connect` offers `PROVIDER_IDS` and `/provider` offers `AI_PROVIDER_IDS`, and both list only the built-in providers (`apps/cli/ai/slash-commands.ts:268`, `:466`).
 
-spec-requirement-3: The connector works with any local server, whichever product runs it, and with any model the server serves, whether or not Studio knows that model. Studio asks only for the address and the optional key, never which product runs the server.
+spec-requirement-3: The connector works with any local server, whichever product runs it, and with any model the server chats on, whether or not Studio knows that model. Studio asks only for the address and the optional key, never which product runs the server.
 
 origin: from-intent Goal ("any local LLM provider", "a generic connector")
 
@@ -44,17 +44,19 @@ observed: Ollama lists its models with no key (`spec/local-service.txt`) and acc
 
 observed: the providers design states that surfaces show of a connected account a summary "such as a key's first and last characters, never the credential itself" (`docs/design-docs/providers.md:87`).
 
-spec-requirement-6: Connecting fails, and the connector stays not connected, in two cases. When nothing at the address lists models, because no server is listening there or the address points somewhere other than a local server, the message names the address and says no local server answered there. When the server lists no models, the message says the server has no models yet.
+spec-requirement-6: Connecting fails, and the connector stays not connected, in two cases. When nothing at the address lists models, because no server is listening there or the address points somewhere other than a local server, the message names the address and says no local server answered there. When the server lists no model to chat on, because it lists none or only the embedding models spec-requirement-7 leaves out, the message says the server has no chat model yet.
 
-origin: derived Goal; input: LM Studio's server runs only after the person starts it (`lms server start`, `spec/server-docs.md`). Ollama as installed, before any model is pulled, lists `"data":null` (`spec/local-service.txt`, `spec/ollama-probes.txt`).
+origin: derived Goal; input: LM Studio's server runs only after the person starts it (`lms server start`, `spec/server-docs.md`). Ollama as installed, before any model is pulled, lists `"data":null` (`spec/local-service.txt`, `spec/ollama-probes.txt`). LM Studio ships with the embedding model `text-embedding-nomic-embed-text-v1.5`, so before the person downloads a chat model its server lists only that one (`spec/lmstudio-embedding.txt`).
 
 observed: a connection to `127.0.0.1:11556`, where nothing listens, is refused (`spec/ollama-probes.txt`).
 
-spec-requirement-7: Once the connector is connected, the model picker in the app's composer and `/model` in `studio code` offer every model the local server lists, as models of the connector, each under the name the server gives it, such as `qwen3:0.6b`. Picking one in a chat runs that chat's next turns on it.
+spec-requirement-7: Once the connector is connected, the model picker in the app's composer and `/model` in `studio code` offer the models the local server lists, as models of the connector, each under the name the server gives it, such as `qwen3:0.6b`. They leave out the models the server says only make embeddings, which no chat runs on: a model Ollama says only embeds, such as `all-minilm`, and a model LM Studio lists as an embedding model, such as the `text-embedding-nomic-embed-text-v1.5` it ships with. A model the server says nothing about, as on `llama-server` and vLLM, is offered. Picking one in a chat runs that chat's next turns on it.
 
-origin: derived Goal; input: the models a local server lists at `/v1/models`. Ollama 0.40.0 lists `all-minilm:latest`, `gemma3:270m` and `qwen3:0.6b` (`spec/ollama-probes.txt`).
+origin: derived Goal; input: the models a local server lists at `/v1/models`. Ollama 0.40.0 lists `all-minilm:latest`, `gemma3:270m` and `qwen3:0.6b` (`spec/ollama-probes.txt`). LM Studio 0.4.28 lists its chat model and the embedding model it ships with (`spec/lmstudio-embedding.txt`).
 
-observed: the pickers offer each provider's fixed model list: `getAiModels` (`packages/providers/models.ts`), `ModelPicker` (`apps/ui/src/features/composer/model-picker.tsx`) and `/model` (`apps/cli/ai/slash-commands.ts:392`).
+observed: before this change, the pickers offer each provider's fixed model list: `getAiModels` (`packages/providers/models.ts`), `ModelPicker` (`apps/ui/src/features/composer/model-picker.tsx`) and `/model` (`apps/cli/ai/slash-commands.ts:392`), at 924a82669.
+
+observed: neither server's `/v1/models` entries say what kind of model each is. Ollama's own API reports `all-minilm`'s only capability as `embedding`, and Ollama refuses to chat on it with "\"all-minilm:latest\" does not support chat" (`spec/ollama-probes.txt`). LM Studio's own API lists `text-embedding-nomic-embed-text-v1.5` with the type `embedding`, and LM Studio refuses to chat on it with "No models loaded. Please load a model in the developer page or use the 'lms load' command." (`spec/lmstudio-embedding.txt`).
 
 spec-requirement-8: The offered models follow the server, without connecting again. A model the person adds to the server after connecting is offered the next time they open the model picker or run `/model` while the server runs. A model they remove is no longer offered from then on.
 
@@ -76,15 +78,15 @@ origin: derived Goal; input: a person whose only AI provider is their local serv
 
 observed: with no provider connected, a `studio code` turn ends with "Log in to WordPress.com to use its models. Use /connect wpcom to connect it." (`spec/unconfigured-chat.txt`).
 
-spec-requirement-11: A new chat on the connector starts on the local model the person chose most recently on it. Until they have chosen one, it starts on a model the server lists. A chat that ran on a local model keeps running on that model while the server still lists it, when the person reopens it from the app's chat list or with `studio code sessions resume`.
+spec-requirement-11: When the person hasn't picked a model for it, a new chat on the connector starts on one of the models spec-requirement-7 offered when the person connected it. It is one the server says can call tools, when the server says that of any, even when the server lists another model first. A chat that ran on a local model keeps running on that model while the server still lists it, when the person reopens it from the app's chat list or with `studio code sessions resume`.
 
-origin: derived Goal; input: Ollama lists the most recently pulled model first, and in the probe that was the embedding-only `all-minilm:latest` (`spec/ollama-probes.txt`). Chats are reopened from the app's chat list and with `studio code sessions resume`.
+origin: derived Goal; input: Ollama lists the most recently pulled model first. In the probe it listed the embedding-only `all-minilm:latest` and `gemma3:270m`, which can't call tools, before `qwen3:0.6b`, which can (`spec/ollama-probes.txt`). Ollama refuses tools on `gemma3:270m` (`spec/ollama-probes.txt`), and every Studio Code turn offers the model its tools (`spec/studio-code-request.txt`). Chats are reopened from the app's chat list and with `studio code sessions resume`.
 
-observed: a new chat starts on its provider's fixed default model, and on resume a recorded model that isn't in the provider's fixed list is replaced by that default. See `resolveSessionModelForProvider` (`packages/agent/protocol/sessions/model.ts:63`) and `servesModel` (`apps/cli/commands/ai/index.ts:78`, `:224`).
+observed: before this change, a new chat starts on its provider's fixed default model, and on resume a recorded model that isn't in the provider's fixed list is replaced by that default. See `resolveSessionModelForProvider` (`packages/agent/protocol/sessions/model.ts:63`) and `servesModel` (`apps/cli/commands/ai/index.ts:78`, `:224`), at 924a82669.
 
-spec-requirement-12: Sometimes the local server refuses a turn because of its model. Ollama answers "does not support tools" for `gemma3:270m`, "does not support chat" for the embedding-only `all-minilm`, and "model '…' not found" for a model it no longer has. The turn then ends with an error in the chat that names the model, gives the server's reason in words rather than as a raw response body, and says to pick another model. No other provider answers the turn in its place.
+spec-requirement-12: Sometimes the local server refuses a turn because of its model. Ollama answers "does not support tools" for `gemma3:270m`, and "model '…' not found" for a model it no longer has. The turn then ends with an error in the chat that names the model, gives the server's reason in words rather than as a raw response body, and says to pick another model. No other provider answers the turn in its place.
 
-origin: derived Goal; input: Ollama 0.40.0 answers those three refusals with 400, 400 and 404 (`spec/ollama-probes.txt`).
+origin: derived Goal; input: Ollama 0.40.0 answers those two refusals with 400 and 404 (`spec/ollama-probes.txt`).
 
 observed: a turn the model server refuses ends with the raw response as its error, `400: {"message":"…","type":"invalid_request_error"}` (`spec/studio-code-request.txt`).
 
@@ -164,9 +166,9 @@ spec-acceptance-criterion-8: Given `llama-server` started with `--api-key`, when
 
 spec-acceptance-criterion-9: Given an address where nothing listens, when the person connects with it in Settings or in `/connect`, then connecting fails with a message that names the address and says no local server answered there, and the connector stays not connected.
 
-spec-acceptance-criterion-10: Given an Ollama server with no models, when the person connects with its address, then connecting fails with a message saying the server has no models yet.
+spec-acceptance-criterion-10: Given an Ollama server with no models, or an LM Studio server whose only model is the `text-embedding-nomic-embed-text-v1.5` it ships with, when the person connects with its address, then connecting fails with a message saying the server has no chat model yet, and the connector stays not connected.
 
-spec-acceptance-criterion-11: Given the connector connected to Ollama serving `qwen3:0.6b` and `gemma3:270m`, when the person opens the composer's model picker and runs `/model`, then both offer the two models by those names, as models of the connector.
+spec-acceptance-criterion-11: Given the connector connected to Ollama serving `qwen3:0.6b`, `gemma3:270m` and `all-minilm`, when the person opens the composer's model picker and runs `/model`, then both offer `qwen3:0.6b` and `gemma3:270m` by those names, as models of the connector, and neither offers `all-minilm`.
 
 spec-acceptance-criterion-12: Given the connector connected to a running Ollama, when the person adds a model with `ollama pull` and opens the model picker again, then the new model is offered. After `ollama rm`, it isn't.
 
@@ -174,11 +176,11 @@ spec-acceptance-criterion-13: Given a chat on a local model that can call tools,
 
 spec-acceptance-criterion-14: Given the connector connected and chosen as the chat provider, with no other provider connected, when the person sends a message in the app and in `studio code`, then the local model's reply appears in the chat, with no request to sign in to WordPress.com or to add AI credits.
 
-spec-acceptance-criterion-15: Given a person who picked a local model in a chat on the connector, when they start a new chat on the connector, then the composer shows that model.
+spec-acceptance-criterion-15: Given Ollama listing `all-minilm:latest` and `gemma3:270m` before `qwen3:0.6b`, when the person connects the connector and starts a new chat on it without picking a model, in the app and in `studio code`, then the chat starts on `qwen3:0.6b`.
 
 spec-acceptance-criterion-16: Given a chat that ran on a local model the server still lists, when the person reopens it from the app's chat list or with `studio code sessions resume` and sends a message, then the turn runs on that model.
 
-spec-acceptance-criterion-17: Given a chat on Ollama's `gemma3:270m`, on `all-minilm`, or on a model removed from the server, when the person sends a message, then the chat shows an error that names the model, gives the server's reason in words and says to pick another model, with no raw response body and no reply from another provider.
+spec-acceptance-criterion-17: Given a chat on Ollama's `gemma3:270m`, or on a model removed from the server, when the person sends a message, then the chat shows an error that names the model, gives the server's reason in words and says to pick another model, with no raw response body and no reply from another provider.
 
 spec-acceptance-criterion-18: Given a chat on a local model whose server has stopped, when the person sends a message, then the chat shows an error that names the server's address, says the local server isn't answering, and says to start it, with no reply from another provider.
 
@@ -200,6 +202,8 @@ spec-acceptance-criterion-26: Given settings in which the connector is connected
 
 spec-acceptance-criterion-27: Given Studio on the web, when the person opens Settings → Providers and the composer's model picker, then neither offers the connector.
 
+spec-acceptance-criterion-28: Given the connector connected to LM Studio serving a chat model and the `text-embedding-nomic-embed-text-v1.5` it ships with, when the person opens the composer's model picker and runs `/model`, then both offer the chat model and neither offers the embedding model.
+
 ## Exclusions
 
 spec-exclusion-1: Studio doesn't install, start or stop a local server, download models into it, or change its settings, such as the context it runs a model with.
@@ -213,7 +217,9 @@ spec-exclusion-3: While the computer is offline, the operations that reach an on
 - Several local servers connected at once, such as Ollama and LM Studio side by side — one connection the person can point at any server meets the Goal, and a provider keeps one connection at a time today (observed: `docs/design-docs/providers.md:79`).
 - Reading of the Goal in which the person types the model's name when connecting — every server examined lists the models it serves at `/v1/models` (observed: `spec/ollama-probes.txt`; documented: `spec/server-docs.md`), so Studio offers those, and a name the server doesn't serve gets the refusal of spec-requirement-12.
 - Reading of the Goal that offers the connector in Studio on the web for servers that accept its origin — Ollama as installed refuses that origin, and LM Studio and vLLM refuse it by default (observed: `spec/web-origins.txt`; documented: `spec/server-docs.md`). Only `llama-server` accepts any origin by default (read in its source: `spec/web-origins.txt`), so the control would fail on most servers as installed.
-- Leaving out of the pickers the models a server can't chat with, or that can't call tools — `/v1/models` gives only ids (observed: Ollama's listing, `spec/ollama-probes.txt`), so the turn's error (spec-requirement-12) tells the person instead.
+- Leaving out of the pickers the models a server says can't call tools, such as Ollama's `gemma3:270m` — such a model is a chat model: Ollama lists its `completion` capability and refuses only the tools (observed: `spec/ollama-probes.txt`). Offering it lets the turn's error (spec-requirement-12) tell the person why Studio Code can't run on it, where leaving it out would hide it with no reason. Only an embedding model is no chat model, and LM Studio ships one the person never chose (observed: `spec/lmstudio-embedding.txt`).
+- Reading of spec-requirement-11 in which a new chat starts on the local model the person chose most recently — no provider carries a pick into the next `studio code` run, which starts a new chat on the provider's default (observed: `apps/cli/commands/ai/index.ts:228` at 924a82669). The app keeps a site's new-chat pick only in memory, for every provider (observed: `apps/ui/src/data/queries/use-site-chat-draft.ts:24` and `apps/ui/src/features/chats/session-view/index.tsx:165` at 924a82669). The input that calls for choosing where a new chat starts is a server listing first a model Studio Code can't run on, and the model chosen from what the server lists at connect meets it.
+- Reading of spec-requirement-11 in which a new chat's starting model follows the models pulled or removed after connecting — the picker follows them (spec-requirement-8). A turn on a removed model ends saying to pick another (spec-requirement-12), and connecting again chooses from what the server then lists (spec-requirement-1).
 - Completing a turn that carries an image the person attached, on a local model that can't read images — the composer holds such attachments back for the built-in models that can't read images (observed: `apps/ui/src/features/composer/composer.tsx:388`), and the connector follows it.
 - Finding local servers on the computer or the network without the person giving an address — every Studio provider connects from Settings or `/connect` (observed: `spec/providers.txt`, `apps/cli/ai/slash-commands.ts:268`).
 - A provider the person writes or loads for their own server — the Goal asks for one generic connector, and providers are compiled into Studio (observed: `docs/design-docs/providers.md:149`).
