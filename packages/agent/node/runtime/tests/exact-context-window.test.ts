@@ -6,6 +6,7 @@ import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
 import { getAgentEndFailure } from '@studio/agent/protocol/errors';
+import { getAgentEndTurnResult } from '@studio/agent/protocol/session-events';
 import { createFakeHost } from '../../tests/fake-host';
 
 const roots = vi.hoisted( () => ( { config: '' } ) );
@@ -20,6 +21,19 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 } );
 
 const SERVER = 'http://127.0.0.1:8080';
+
+// llama-server's refusal of a request too large for its context.
+const overflow = () =>
+	Response.json(
+		{
+			error: {
+				code: 400,
+				message: 'the request exceeds the available context size, try increasing it',
+				type: 'exceed_context_size_error',
+			},
+		},
+		{ status: 400 }
+	);
 
 function sse( reply: string ): Response {
 	const chunks = [
@@ -40,7 +54,13 @@ describe( 'a connection whose context window is exact', () => {
 
 	// A llama-server running `tiny` with a context of `context` tokens, which reports it. `answer`
 	// stands in for its answer to a chat request.
-	const serve = ( context?: number, answer?: ( summarizing: boolean ) => Response | undefined ) =>
+	const serve = (
+		context?: number,
+		answer?: (
+			summarizing: boolean,
+			signal: AbortSignal | undefined
+		) => Response | Promise< Response > | undefined
+	) =>
 		vi.spyOn( globalThis, 'fetch' ).mockImplementation( async ( input, init ) => {
 			const url = String( input );
 			if ( url === `${ SERVER }/v1/models` ) {
@@ -59,14 +79,18 @@ describe( 'a connection whose context window is exact', () => {
 				requests.push( body );
 				const summarizing = JSON.stringify( body.messages ).includes( '<conversation>' );
 				return (
-					answer?.( summarizing ) ??
+					( await answer?.( summarizing, init?.signal ?? undefined ) ) ??
 					sse( summarizing ? 'A summary of the earlier conversation.' : 'Hello there.' )
 				);
 			}
 			return new Response( 'Not found', { status: 404 } );
 		} );
 
-	async function runTurn( session: SessionManager ) {
+	// Runs a turn to its end, interrupting it once `interruptWhen` settles.
+	async function runTurn(
+		session: SessionManager,
+		{ interruptWhen }: { interruptWhen?: Promise< void > } = {}
+	) {
 		const ai = await getProviderServices( 'local-llm' ).ai!.model(
 			{ method: 'server', baseUrl: `${ SERVER }/v1`, model: 'tiny' },
 			'local-llm/tiny',
@@ -74,12 +98,14 @@ describe( 'a connection whose context window is exact', () => {
 		);
 		const events: AgentSessionEvent[] = [];
 		const agent = createAgent( { host: createFakeHost( sitesRoot ) } );
-		await agent.runTurn( {
+		const turn = agent.runTurn( {
 			prompt: 'Add a page about us.',
 			session,
 			ai,
 			onEvent: ( event ) => events.push( event ),
-		} ).result;
+		} );
+		void interruptWhen?.then( () => turn.interrupt() );
+		await turn.result;
 		return events.filter( ( event ) => event.type === 'agent_end' && ! event.willRetry ).at( -1 )!;
 	}
 
@@ -145,16 +171,7 @@ describe( 'a connection whose context window is exact', () => {
 		serve( 40_000, ( summarizing ) =>
 			summarizing
 				? Response.json( { error: { message: 'Invalid API Key' } }, { status: 401 } )
-				: Response.json(
-						{
-							error: {
-								code: 400,
-								message: 'the request exceeds the available context size, try increasing it',
-								type: 'exceed_context_size_error',
-							},
-						},
-						{ status: 400 }
-				  )
+				: overflow()
 		);
 		const session = SessionManager.inMemory( sitesRoot );
 		session.appendMessage( { role: 'user', content: 'Hi.', timestamp: 0 } );
@@ -166,6 +183,28 @@ describe( 'a connection whose context window is exact', () => {
 			'The local server refused the API key. Check the key, and connect again.'
 		);
 		expect( getAgentEndFailure( end )?.message ).not.toContain( 'too small' );
+	} );
+
+	it( 'ends a turn the user stops while it compacts as interrupted', async () => {
+		// The server refuses the turn as too large for its context, and the user stops the turn while
+		// the server works on the summary that would make it fit.
+		let summaryAsked!: () => void;
+		const summarizing = new Promise< void >( ( resolve ) => ( summaryAsked = resolve ) );
+		serve( 40_000, ( summary, signal ) =>
+			summary
+				? new Promise< Response >( ( _resolve, reject ) => {
+						summaryAsked();
+						signal?.addEventListener( 'abort', () => reject( signal.reason ) );
+				  } )
+				: overflow()
+		);
+		const session = SessionManager.inMemory( sitesRoot );
+		session.appendMessage( { role: 'user', content: 'Hi.', timestamp: 0 } );
+
+		const end = await runTurn( session, { interruptWhen: summarizing } );
+
+		expect( getAgentEndTurnResult( end ) ).toMatchObject( { interrupted: true } );
+		expect( getAgentEndFailure( end ) ).toBeNull();
 	} );
 
 	it( 'leaves a server that doesn’t say its context to refuse what doesn’t fit', async () => {

@@ -96,21 +96,26 @@ type AgentEndEvent = Extract< AgentSessionEvent, { type: 'agent_end' } >;
  * On a connection whose window is exact, a turn that ends on a context overflow ends with the
  * connection's words, in place of pi's or the server's. pi ends a run on an overflow before it
  * compacts the conversation to retry it, so that end isn't final until the compaction is: a retry
- * ends the turn itself, and a compaction that fails for another reason, such as a server that
- * stopped answering, ends the turn with that failure.
+ * ends the turn itself, a compaction that fails for another reason, such as a server that stopped
+ * answering, ends the turn with that failure, and one the user stopped ends it as interrupted.
  */
 function createOverflowEnding( ai: AiConnection ) {
 	const words = ai.exactContextWindow?.overflowMessage;
 	let pending: AgentEndEvent | undefined;
 	let compacting = false;
 
-	const end = ( event: AgentEndEvent, errorMessage: string ): AgentEndEvent => {
+	// The overflowed run's end, final: with `errorMessage`, or as interrupted without one.
+	const end = ( event: AgentEndEvent, errorMessage?: string ): AgentEndEvent => {
 		const last = findLastAssistant( event.messages );
+		const ending =
+			errorMessage === undefined
+				? { stopReason: 'aborted' as const, errorMessage: undefined }
+				: { errorMessage };
 		return {
 			...event,
 			willRetry: false,
 			messages: event.messages.map( ( message ) =>
-				message === last ? { ...last, errorMessage } : message
+				message === last ? { ...last, ...ending } : message
 			),
 		};
 	};
@@ -140,6 +145,9 @@ function createOverflowEnding( ai: AiConnection ) {
 			if ( event.willRetry ) {
 				return [ event ];
 			}
+			if ( event.aborted ) {
+				return [ event, end( overflowed ) ];
+			}
 			const last = findLastAssistant( overflowed.messages )!;
 			const failure =
 				summaryFailed &&
@@ -149,11 +157,11 @@ function createOverflowEnding( ai: AiConnection ) {
 					: words;
 			return [ { ...event, errorMessage: undefined }, end( overflowed, failure ) ];
 		},
-		/** The end of a turn pi left on an overflow without compacting it. */
-		flush(): AgentSessionEvent[] {
+		/** The end of a turn pi left on an overflow without compacting it, or that was interrupted. */
+		flush( interrupted: boolean ): AgentSessionEvent[] {
 			const overflowed = pending;
 			pending = undefined;
-			return overflowed && words ? [ end( overflowed, words ) ] : [];
+			return overflowed && words ? [ end( overflowed, interrupted ? undefined : words ) ] : [];
 		},
 	};
 }
@@ -305,7 +313,7 @@ async function runAgentSessionTurn(
 				{ triggerTurn: true }
 			);
 		}
-		overflowEnding.flush().forEach( ( item ) => config.onEvent( item ) );
+		overflowEnding.flush( controller.signal.aborted ).forEach( ( item ) => config.onEvent( item ) );
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
