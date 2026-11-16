@@ -143,7 +143,10 @@ export interface PendingConnect {
 	url: string;
 	/** The code the user approves there, for a `device` method. */
 	code?: string;
-	/** What `account.connect` needs to finish connecting. Studio keeps it, never shows it. */
+	/**
+	 * What `account.connect` needs to finish connecting, in the provider's own keys and values.
+	 * Studio keeps it, never shows it, and hands it back to `connect` as it is.
+	 */
 	handoff: Record< string, string >;
 }
 
@@ -254,7 +257,7 @@ export interface ProviderDescriptor<
 	/**
 	 * The provider's logo in its brand colors: a square SVG document, background included, that
 	 * fills its canvas. Surfaces round it into a tile like an app icon, so it reads the same in
-	 * light and dark, and fall back to `icon` without one.
+	 * light and dark, and fall back to `icon` without one, or to a generic mark without either.
 	 */
 	logo?: string;
 	account: {
@@ -407,16 +410,21 @@ export interface AiConnection {
 	/**
 	 * The provider name pi gives the model. pi adjusts requests for providers it knows by name,
 	 * such as `anthropic`, `openai` or `github-copilot`, so a provider sets the name of the service
-	 * its requests go to, the same as `model.provider`: usually its own id.
+	 * its requests go to, the same as `model.provider`: its own id for a service pi doesn't know.
 	 */
 	piProvider: string;
-	/** The credential pi sends, as each API sends it. */
+	/** The credential the agent sends, the way the connection's API sends one. */
 	apiKey: string;
-	/** Headers every request carries. */
+	/** Headers the agent sends with every request. */
 	headers?: Record< string, string >;
 	/**
-	 * The model as pi describes it: `api` is one of `AI_APIS`; `id` is the Studio model id, which
-	 * chats record; `baseUrl` is where requests go.
+	 * The model as pi describes it. `id` is the Studio model id, which chats record; `name` its
+	 * name; `api` one of `AI_APIS`; `provider` the same as `piProvider`; `baseUrl` where requests
+	 * go; `reasoning` whether it thinks before answering; `input` `[ 'text' ]`, or `[ 'text',
+	 * 'image' ]` when it reads images; `cost` its prices, which Studio doesn't show; and
+	 * `contextWindow` and `maxTokens` its limits, in tokens. `compat` adjusts requests to an
+	 * OpenAI-compatible service that differs from OpenAI. A model in pi's catalog
+	 * (`@earendil-works/pi-ai/providers/*.models`) can start from its entry there.
 	 */
 	model: Model< AiApi >;
 	/** The model id sent on the wire, when the provider's service names the model differently. */
@@ -438,6 +446,7 @@ export interface GenerateImageRequest {
 
 /** One generated image, or why it failed. */
 export interface GenerateImageResult {
+	/** Whether the image was generated. */
 	ok: boolean;
 	/** The image, when `ok`. */
 	bytes?: Uint8Array;
@@ -478,9 +487,14 @@ export interface AiServices< Config, ModelId extends string = string > {
 }
 
 /**
- * What a push sends, which Studio builds from `sites.content`: the site's WordPress archive (a
- * Blob in the page, a readable stream of the file in Node), or a static export of its pages, each
- * file read when the provider uploads it.
+ * What a push sends, which Studio builds from `sites.content`.
+ *
+ * - `archive`: the site's WordPress archive, a `.tar.gz` file named `name`, of `size` bytes. In
+ *   the page `file` is a Blob; in Node it is a readable stream of the file, which `fetch` sends
+ *   as a request body with `duplex: 'half'` and `size` as its `Content-Length`. A provider that
+ *   stops before reading it all destroys it (`file.destroy()`); Studio deletes the file after
+ *   the push.
+ * - `files`: a static export of the site's pages, each file read when the provider uploads it.
  */
 export type PushContent =
 	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
@@ -490,16 +504,20 @@ export type PushContent =
 export interface PushFile {
 	/** Relative to the export's root, with `/` separators. */
 	path: string;
+	/** In bytes. */
 	size: number;
+	/** The file's contents. */
 	read(): Promise< Uint8Array >;
 }
 
-/**
- * A push's step on the provider's side, after Studio built the content, which surfaces show as
- * the push's progress. `progress` is the step's own percentage, when the provider knows it.
- */
+/** A push's step on the provider's side, after Studio built the content. */
 export interface PushStatus {
+	/**
+	 * The step, which surfaces show as the push's progress: uploading the content, backing up the
+	 * remote site, applying the changes, finishing, or launching the site, which is WordPress.com's.
+	 */
 	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing' | 'launching';
+	/** The step's own percentage, when the provider knows it. */
 	progress?: number;
 }
 
@@ -533,8 +551,10 @@ export interface SitesServices< Config, Site extends RemoteSite = RemoteSite > {
 	 * `signal` aborts. A provider throws `RemoteSiteError`, whose message surfaces show, when a
 	 * step fails.
 	 *
-	 * `options` follow WordPress.com sync's selection: a provider whose `sites.selective` is false
-	 * always receives the whole site (`optionsToSync: [ 'all' ]`) and ignores them. Resolving with a
+	 * `options` are WordPress.com sync's selection: `optionsToSync` names what to include (`all`,
+	 * or parts such as `sqls`, `plugins` and `themes`), `specificSelectionPaths` the files the
+	 * user picked, and `launchAfterPush` is WordPress.com's. A provider whose `sites.selective` is
+	 * false always receives the whole site (`optionsToSync: [ 'all' ]`) and ignores them. Resolving with a
 	 * `launchError` is WordPress.com's: the import succeeded but launching the site failed, so
 	 * Studio keeps the intent to launch for the next push.
 	 */
