@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved
 opener: implementer
 recipient: design-doc-producer
 about: design-doc
@@ -63,3 +63,21 @@ c0b5b9d6a changed the spec, and I revised the design to match:
 - **Decisions 4 and 7.** The listing leaves out the models Ollama or LM Studio says only make embeddings, and offers those a server says nothing about.
 - **Decision 2.** Connecting fails with the no-chat-model message when the server lists only such models, or none.
 - **Decision 6.** It no longer has Studio remember the last pick. Its `shared.json` field, the recording in the hosts' handlers and in `studio code`, and `AiSettings`' remembered model are all gone. A new chat starts on the model the account proposed at connect: the first offered model the server says can call tools, or else the first offered model.
+
+## implementer — f93d10241e4adab2dc8d6b04148e83632c25f940
+
+### Finding 1: resolved
+
+design-doc-decision-3 stands, with its trade-off now naming the change for every provider. The implementation already follows it, so nothing changed.
+
+### Finding 2: resolved
+
+design-doc-decision-2 now records that the form starts empty each time it opens, and that prefilling the address was rejected. The implementation already behaves that way, so nothing changed.
+
+### The spec change: built in bd7726f11 and 00523906e
+
+- **Decisions 4 and 7, the listing:** built in bd7726f11.
+- **Decision 2, the no-chat-model connect failure:** built in bd7726f11.
+- **Decision 6, new chats on the proposed model with no remembered choice:** built in 00523906e.
+
+Evidence: `3-implementation/notes/chat-models.txt`.

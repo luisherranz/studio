@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved
 opener: implementer
 recipient: spec-producer
 about: spec
@@ -86,3 +86,25 @@ Two readings not taken are recorded under "Considered and not required":
 - A new chat's starting model following the models pulled or removed after connecting. The picker follows them (spec-requirement-8), a removed model's turn says to pick another (spec-requirement-12), and connecting again chooses from what the server then lists.
 
 That matches design-doc-decision-6's model proposed at connect, without its remembered choice.
+
+## implementer — f93d10241e4adab2dc8d6b04148e83632c25f940
+
+### Finding 1: resolved, built in bd7726f11
+
+The listing leaves out the models Ollama says only embed (capabilities only `embedding`) and the ones LM Studio types `embedding`. It still offers the models a server says nothing about. Connecting fails with "The local server has no chat model yet. Add one to your server, then connect again." when the server lists nothing else.
+
+Observed in `3-implementation/notes/chat-models.txt`:
+
+- **Ollama listing `all-minilm`, `gemma3:270m` and `qwen3:0.6b`:** `/model` and the picker offer `gemma3:270m` and `qwen3:0.6b`.
+- **LM Studio with its bundled embedding model:** they offer only `qwen3-0.6b`.
+- **LM Studio with only the embedding model:** connecting is refused with that message.
+
+### Finding 2: resolved, built in 00523906e
+
+Studio no longer stores a remembered model: `chosenAiModels`, the recording in the hosts' handlers and in `studio code`, and `AiSettings.chosenModels` are gone. A new chat starts on the model the account proposed at connect: the first offered model the server says can call tools, else the first offered.
+
+Observed with Ollama listing `all-minilm:latest` and `gemma3:270m` before `qwen3:0.6b` (`chat-models.txt`):
+
+- Connecting proposes `qwen3:0.6b`.
+- A new `studio code` chat runs on it and replies.
+- A new chat in `studio ui` shows it in the composer.

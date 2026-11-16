@@ -1,0 +1,39 @@
+# Which models the connector offers, and where new chats start (after bd7726f11 and 00523906e), 2026-11-16
+
+## Ollama 0.40.0 listing all-minilm, gemma3:270m and qwen3:0.6b, in that order
+Own instance on 127.0.0.1:11558, its models folder holding only those three, ordered by pull time:
+GET /v1/models -> ['all-minilm:latest', 'gemma3:270m', 'qwen3:0.6b']
+/api/show capabilities: all-minilm:latest ['embedding']; gemma3:270m ['completion']; qwen3:0.6b ['completion', 'tools', 'thinking']
+
+studio code (a chat on an earlier connection), /connect local-llm with 127.0.0.1:11558 and no key:
+ ⏺ Connected Local LLM.
+ stored config: {'method': 'server', 'baseUrl': 'http://127.0.0.1:11558/v1', 'model': 'qwen3:0.6b'}; shared.json has no remembered model
+/model:
+ → 1. gemma3:270m
+   2. qwen3:0.6b (current)
+
+A new chat, without picking a model: studio code --json "Reply with only the word: hello"
+ assistant local-llm/qwen3:0.6b stop "hello"; turn.completed success
+
+studio ui (this worktree, port 8099), a new chat on site local-llm-connector-ui:
+ the composer's model button reads "qwen3:0.6b"; the picker offers "gemma3:270m · Local LLM" and "qwen3:0.6b · Local LLM", then "Connect AI providers"
+ Light: studio-ui-picker-chat-models-light.png; dark: studio-ui-picker-chat-models-dark.png
+
+## LM Studio 0.4.28 with the embedding model it ships with
+'lms server start --port 1234':
+GET /v1/models -> ['qwen3-0.6b', 'text-embedding-nomic-embed-text-v1.5']
+GET /api/v1/models types: qwen3-0.6b llm (trained_for_tool_use: true); text-embedding-nomic-embed-text-v1.5 embedding
+
+studio code, /connect local-llm with http://localhost:1234/v1 and no key:
+ ⏺ Connected Local LLM.   (stored model: qwen3-0.6b)
+/model:
+ → 1. qwen3-0.6b (current)
+studio ui, picker after a reload: "qwen3-0.6b · Local LLM", then "Connect AI providers"; the model button reads "qwen3-0.6b"
+
+With the test model moved out of ~/.lmstudio/models for the check, as on an LM Studio with no chat model downloaded yet ('lms ls': only text-embedding-nomic-embed-text-v1.5; GET /v1/models -> ['text-embedding-nomic-embed-text-v1.5']):
+studio code, /connect local-llm with http://localhost:1234/v1 and no key:
+ ✔ Server address (saved for future use): http://localhost:1234/v1
+ ✔ API key (optional, saved for future use):
+ The local server has no chat model yet. Add one to your server, then connect again.
+ (the form asks for the address again; the stored connection stays the one before)
+The test model was moved back afterwards ('lms ls' lists qwen3-0.6b again).
