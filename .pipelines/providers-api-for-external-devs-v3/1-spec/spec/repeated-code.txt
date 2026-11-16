@@ -1,0 +1,72 @@
+# Code every provider repeats, at 9770853292 (run from packages/providers)
+
+$ grep -rn "if ( ! config\|! config?\.\|config?.method !== " --include=*.ts . | grep -v tests
+./spacefast/sites.ts:9:	if ( ! config?.apiKey ) {
+./gemini/images.ts:96:	if ( ! config ) {
+./gemini/ai.ts:10:		if ( ! config ) {
+./meta/images.ts:35:	if ( ! config ) {
+./meta/ai.ts:11:		if ( ! config ) {
+./github-copilot/ai.ts:32:		if ( ! config ) {
+./anthropic/ai.ts:10:		if ( ! config ) {
+./wpcom/sites/index.ts:28:	if ( ! config?.token ) {
+./wpcom/ai/images.ts:198:	if ( ! config ) {
+./wpcom/ai/index.ts:61:		if ( ! config ) {
+./openai/images.ts:9:	if ( config?.method !== 'api-key' ) {
+./openai/ai.ts:27:		if ( ! config ) {
+
+$ grep -rn "does not serve" --include=*.ts . | grep -v tests
+./gemini/ai.ts:17:			throw new Error( `Google Gemini does not serve ${ modelId }` );
+./meta/ai.ts:18:			throw new Error( `Meta does not serve ${ modelId }` );
+./github-copilot/ai.ts:40:			throw new Error( `GitHub Copilot does not serve ${ modelId }` );
+./anthropic/ai.ts:15:			throw new Error( `Anthropic does not serve ${ modelId }` );
+./wpcom/ai/index.ts:67:			throw new Error( `WordPress.com does not serve ${ modelId }` );
+./openai/ai.ts:34:			throw new Error( `OpenAI does not serve ${ modelId }` );
+
+$ grep -rn "contextWindow: 200_000\|maxTokens: 32_000\|cacheWrite: 0" --include=*.ts . | grep -v tests
+./gemini/ai.ts:24:				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+./gemini/ai.ts:25:				contextWindow: 200_000,
+./gemini/ai.ts:26:				maxTokens: 32_000,
+./meta/ai.ts:31:				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+./meta/ai.ts:32:				contextWindow: 200_000,
+./meta/ai.ts:33:				maxTokens: 32_000,
+./github-copilot/ai.ts:52:				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+./github-copilot/ai.ts:53:				contextWindow: 200_000,
+./github-copilot/ai.ts:54:				maxTokens: 32_000,
+./anthropic/ai.ts:35:				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+./anthropic/ai.ts:39:				contextWindow: 200_000,
+./anthropic/ai.ts:40:				maxTokens: 32_000,
+./wpcom/ai/index.ts:15:const TIER_LIMITS = { contextWindow: 200_000, maxTokens: 32_000 };
+./wpcom/ai/index.ts:88:				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+./openai/ai.ts:43:				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+./openai/ai.ts:44:				contextWindow: 200_000,
+./openai/ai.ts:45:				maxTokens: 32_000,
+
+$ grep -rn "safeParse( input )" --include=*.ts . | grep -v tests
+./gemini/account.ts:15:		const parsed = geminiConnectInput().safeParse( input );
+./meta/account.ts:14:		const parsed = metaConnectInput().safeParse( input );
+./anthropic/account.ts:71:	const parsed = schema.safeParse( input );
+./openai/account.ts:115:	const parsed = openaiConnectInput().safeParse( input );
+
+# Where Studio checks the model is the provider’s before asking for a connection
+apps/studio/src/ipc-handlers.ts:381:	if ( ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+apps/local/src/index.ts:2231:			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+packages/agent/protocol/sessions/model.ts:70:	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model )
+apps/cli/commands/ai/index.ts:79:	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ?? false;
+apps/cli/ai/eval-harnesses/studio.ts:158:	if ( ! getProvider( aiProvider ).ai?.models.some( ( { id } ) => id === resolvedModel ) ) {
+
+# ConnectError reasons: who sets them, and who reads them (no reader outside the providers)
+$ grep -rn "ConnectFailure\|'denied'\|'unverified'\|\.reason" --include=*.ts --include=*.tsx apps packages | grep -v node_modules | grep -v /tests/ | grep -i "connect\|denied\|unverified"
+packages/providers/spacefast/account.ts:39:					'denied'
+packages/providers/spacefast/account.ts:44:				'unverified'
+packages/providers/errors.ts:11:export type ConnectFailure = 'denied' | 'invalid' | 'unverified';
+packages/providers/errors.ts:17:		readonly reason: ConnectFailure = 'invalid'
+packages/providers/github-copilot/account.ts:103:			throw new ConnectError( __( 'GitHub sign-in was declined.' ), 'denied' );
+packages/providers/github-copilot/account.ts:108:	throw new ConnectError( __( 'The GitHub sign-in expired. Try again.' ), 'denied' );
+packages/providers/github-copilot/account.ts:135:		throw new ConnectError( error.message, 'unverified' );
+packages/providers/github-copilot/account.ts:142:		throw new ConnectError( getNoCopilotMessage(), 'unverified' );
+packages/providers/wpcom/account.ts:17:			params.error === 'access_denied' ? 'denied' : 'invalid'
+packages/providers/wpcom/account.ts:41:			'unverified'
+packages/providers/wpcom/account.ts:49:		throw new ConnectError( 'WordPress.com returned an unexpected account.', 'unverified' );
+packages/providers/openai/account.ts:57:			'denied'
+packages/providers/openai/account.ts:149:			'unverified'
+packages/common/lib/provider-connect.ts:100:			throw new ConnectError( __( 'Signing in was declined.' ), 'denied' );

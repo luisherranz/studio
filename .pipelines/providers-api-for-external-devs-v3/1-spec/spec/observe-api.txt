@@ -1,0 +1,102 @@
+import { createServer } from 'vite';
+
+const server = await createServer( {
+	configFile: false,
+	server: { middlewareMode: true },
+	appType: 'custom',
+	ssr: { noExternal: [ 'wpcom', 'wpcom-xhr-request' ] },
+} );
+const originalFetch = globalThis.fetch;
+// Block fetch requests so this observation cannot touch a remote account that way.
+let fetchCalls = 0;
+globalThis.fetch = async () => {
+	fetchCalls++;
+	throw new Error( 'This observation does not contact providers.' );
+};
+
+try {
+	const api = await server.ssrLoadModule( '/packages/providers/index.ts' );
+	const services = await server.ssrLoadModule( '/packages/providers/services.ts' );
+	const inventory = api.PROVIDER_IDS.map( ( id ) => {
+		const descriptor = api.getProvider( id );
+		const operations = services.getProviderServices( id );
+		return {
+			id,
+			methods: descriptor.account.methods.map( ( { id, kind } ) => ( { id, kind } ) ),
+			models: api.getAiModels( id ).map( ( { id } ) => id ),
+			sites: descriptor.sites
+				? {
+						content: descriptor.sites.content,
+						pull: descriptor.sites.pull,
+						create: descriptor.sites.newSite,
+				  }
+				: null,
+			operations: {
+				ai: !! operations.ai,
+				images: !! operations.ai?.generateImages,
+				sites: !! operations.sites,
+				pull: !! operations.sites?.pull,
+				create: !! operations.sites?.create,
+			},
+		};
+	} );
+	console.log( 'Current public API inventory:' );
+	console.log( JSON.stringify( inventory, null, 2 ) );
+	console.log(
+		'Anthropic secret field metadata:',
+		JSON.stringify( api.getConnectFields( api.getConnectMethod( 'anthropic' ) ).map(
+			( { name, secret } ) => ( { name, secret } )
+		) )
+	);
+	console.log(
+		'Anthropic persisted id:',
+		JSON.stringify( {
+			read: api.normalizeProviderId( 'anthropic-api-key' ),
+			write: api.toStoredProviderId( 'anthropic' ),
+		} )
+	);
+	console.log(
+		'Account-restricted Copilot models:',
+		JSON.stringify( api.getAiModels( 'github-copilot', { models: [] } ) )
+	);
+	console.log(
+		'OpenAI image support by connection method:',
+		JSON.stringify( {
+			apiKey: services.getProviderServices( 'openai' ).ai.canGenerateImages( {
+				method: 'api-key',
+				apiKey: 'observation-not-a-credential',
+			} ),
+			chatgpt: services.getProviderServices( 'openai' ).ai.canGenerateImages( {
+				method: 'chatgpt',
+				clientId: 'observation-client',
+				accessToken: 'observation-not-a-credential',
+				refreshToken: 'observation-not-a-credential',
+				accessTokenExpiresAt: 0,
+			} ),
+		} )
+	);
+	for ( const [ name, operation ] of [
+		[
+			'Anthropic model without config',
+			() => services.getProviderServices( 'anthropic' ).ai.model(
+				undefined, api.getDefaultAiModel( 'anthropic' ), {}
+			),
+		],
+		[
+			'Spacefast sites without config',
+			() => services.getProviderServices( 'spacefast' ).sites.list( undefined ),
+		],
+	] ) {
+		try {
+			await operation();
+			console.log( name + ': unexpectedly succeeded' );
+			process.exitCode = 1;
+		} catch ( error ) {
+			console.log( name + ': ' + error.constructor.name + ': ' + error.message );
+		}
+	}
+	console.log( 'Provider fetch calls:', fetchCalls );
+} finally {
+	globalThis.fetch = originalFetch;
+	await server.close();
+}

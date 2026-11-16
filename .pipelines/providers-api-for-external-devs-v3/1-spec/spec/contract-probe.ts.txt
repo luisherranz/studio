@@ -1,0 +1,130 @@
+// Probe: what the provider contract accepts today. Each case is something a developer
+// writing a provider could get wrong; the expected compile result is noted per case.
+import { z } from 'zod';
+import type { MetaConfig } from '../meta/config';
+import type { Space } from '../spacefast/descriptor';
+import type { Provider, ProviderConfigs, ProviderServices, ProviderSite } from '../types';
+
+const input = () => z.object( { apiKey: z.string().min( 1 ) } );
+const configSchema = z.object( { apiKey: z.string().min( 1 ) } );
+
+// Case 1: a new provider id. Not in the closed ProviderId union.
+export const case1: Provider< MetaConfig > = {
+	id: 'example',
+	label: 'Example',
+	account: {
+		configSchema,
+		methods: [ { id: 'api-key', label: () => 'API key', kind: 'form', input } ],
+		describe: () => ( { method: 'api-key' } ),
+	},
+};
+
+// Case 2: a new provider's own model id. Not in the closed AiModelId union.
+export const case2: Provider< MetaConfig > = {
+	id: 'meta',
+	label: 'Example',
+	account: {
+		configSchema,
+		methods: [ { id: 'api-key', label: () => 'API key', kind: 'form', input } ],
+		describe: () => ( { method: 'api-key' } ),
+	},
+	ai: { models: [ { id: 'example-large', label: () => 'Large' } ], defaultModel: 'example-large' },
+};
+
+// Case 3: the default model is one the provider doesn't list (WordPress.com's `fast`), the
+// account's method id doesn't match any declared method, a `redirect` method (the Studio
+// sign-in) and a model gated on WordPress.com's paid AI credits.
+export const case3: Provider< MetaConfig > = {
+	id: 'meta',
+	label: 'Example',
+	account: {
+		configSchema,
+		methods: [
+			{ id: 'api-key', label: () => 'API key', kind: 'form', input },
+			{ id: 'sign-in', label: () => 'Log in', kind: 'redirect' },
+		],
+		describe: () => ( { method: 'apikey' } ),
+	},
+	ai: {
+		models: [ { id: 'muse-spark-1.3', label: () => 'Muse', requiresPaidAiCredits: true } ],
+		defaultModel: 'fast',
+	},
+};
+
+// Case 4: services registered under `meta` that name `gemini`.
+export const case4: { meta: ProviderServices< ProviderConfigs[ 'meta' ], ProviderSite< 'meta' > > } =
+	{
+		meta: { id: 'gemini', account: { connect: async () => ( { apiKey: 'k' } ) } },
+	};
+
+// Case 5: a descriptor that offers AI models and pulls, creates and pushes archives, next to
+// services that offer no model connection, no pull, no create, and push only static files.
+const sitesInfo = {
+	pull: true,
+	selective: true,
+	content: 'archive',
+	newSite: 'create',
+	intro: { title: () => 'T', description: () => 'D', learnMoreUrl: 'https://example.com' },
+	describe: () => ( { details: [], links: [] } ),
+	issue: () => null,
+	withDetails: ( connections ) => connections,
+} satisfies Provider< MetaConfig, Space >[ 'sites' ];
+export const case5: {
+	descriptor: Provider< MetaConfig, Space >;
+	services: ProviderServices< MetaConfig, Space >;
+} = {
+	descriptor: {
+		id: 'meta',
+		label: 'Example',
+		account: {
+			configSchema,
+			methods: [ { id: 'api-key', label: () => 'API key', kind: 'form', input } ],
+			describe: () => ( { method: 'api-key' } ),
+		},
+		ai: { models: [ { id: 'muse-spark-1.3', label: () => 'Muse' } ], defaultModel: 'muse-spark-1.3' },
+		sites: sitesInfo,
+	},
+	services: {
+		id: 'meta',
+		account: { connect: async () => ( { apiKey: 'k' } ) },
+		sites: {
+			list: async () => [],
+			async push( _config, _site, content ) {
+				if ( content.kind !== 'files' ) {
+					throw new Error( 'static only' );
+				}
+			},
+		},
+	},
+};
+
+// Case 6: a model connection on an API Studio's agent does not run.
+export const case6: NonNullable< ProviderServices< MetaConfig >[ 'ai' ] > = {
+	async model( config ) {
+		return {
+			piProvider: 'example',
+			apiKey: config?.apiKey ?? '',
+			model: {
+				id: 'muse-spark-1.3',
+				name: 'Muse',
+				api: 'mistral-conversations',
+				provider: 'example',
+				baseUrl: 'https://example.com',
+				reasoning: false,
+				input: [ 'text' ],
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				contextWindow: 1000,
+				maxTokens: 100,
+			},
+		};
+	},
+};
+
+// Case 7: what `connect` receives for a form method: untyped strings, not the form's values.
+export const case7: ProviderServices< MetaConfig >[ 'account' ] = {
+	async connect( method, values ) {
+		const typedMethod: 'api-key' = method;
+		const typedValues: { apiKey: string } = values;
+		return { apiKey: typedValues.apiKey + typedMethod };
+	},
+};

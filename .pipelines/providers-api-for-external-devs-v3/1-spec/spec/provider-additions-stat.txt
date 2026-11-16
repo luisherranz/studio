@@ -1,0 +1,89 @@
+$ git show --stat --format="%H %s" eb3225c1f   # the Meta provider, as merged
+eb3225c1ff606de7b26b0ae3e8e6b01189528d40 Providers: Connect Meta with an API key to chat on Muse models (#5953)
+
+ .../lib/tests/settings-tracks.test.ts              |  1 +
+ docs/design-docs/providers.md                      |  3 +-
+ eslint.config.mjs                                  | 12 +++--
+ .../agent/protocol/sessions/tests/model.test.ts    |  1 +
+ packages/common/lib/provider-config.ts             |  1 +
+ packages/common/lib/tests/ai-settings.test.ts      |  3 ++
+ packages/providers/README.md                       |  2 +-
+ packages/providers/meta/account.ts                 | 27 ++++++++++
+ packages/providers/meta/ai.ts                      | 38 +++++++++++++++
+ packages/providers/meta/config.ts                  |  5 ++
+ packages/providers/meta/descriptor.ts              | 57 ++++++++++++++++++++++
+ packages/providers/meta/images.ts                  | 45 +++++++++++++++++
+ packages/providers/meta/services.ts                | 10 ++++
+ packages/providers/meta/tests/account.test.ts      | 55 +++++++++++++++++++++
+ packages/providers/meta/tests/images.test.ts       | 53 ++++++++++++++++++++
+ packages/providers/models.ts                       |  2 +
+ packages/providers/registry.ts                     |  4 ++
+ packages/providers/services.ts                     |  2 +
+ packages/providers/types.ts                        |  5 +-
+ 19 files changed, 320 insertions(+), 6 deletions(-)
+
+$ git show --stat --format="%H %s" aad3d2daa   # the GitHub Copilot provider, as merged
+aad3d2daa9d40414f1deb2a35e4db7c55a8f8811 Providers: Use a GitHub Copilot plan in Studio Code (#5952)
+
+ apps/cli/ai/slash-commands.ts                      |  13 +-
+ apps/cli/ai/tests/auth.test.ts                     |   2 +-
+ apps/cli/ai/tests/slash-commands.test.ts           |   6 +-
+ .../lib/tests/settings-tracks.test.ts              |   1 +
+ apps/ui/src/data/core/types.ts                     |   4 +-
+ .../features/composer/chat-model-picker.test.tsx   |  21 +++
+ apps/ui/src/features/composer/model-picker.tsx     |  17 +-
+ .../settings-dialog/app-settings-dialog.test.tsx   |   2 +
+ .../features/settings/settings-view/ai-panel.tsx   |   3 +-
+ docs/design-docs/providers.md                      |   7 +-
+ eslint.config.mjs                                  |   2 +-
+ .../agent/protocol/sessions/tests/model.test.ts    |   1 +
+ packages/common/lib/provider-config.ts             |   1 +
+ packages/common/lib/tests/ai-settings.test.ts      |   3 +
+ packages/providers/README.md                       |   8 +-
+ packages/providers/github-copilot/account.ts       | 164 ++++++++++++++++
+ packages/providers/github-copilot/ai.ts            |  58 ++++++
+ packages/providers/github-copilot/api.ts           |  69 +++++++
+ packages/providers/github-copilot/config.ts        |  14 ++
+ packages/providers/github-copilot/descriptor.ts    |  40 ++++
+ packages/providers/github-copilot/services.ts      |  10 +
+ .../providers/github-copilot/tests/account.test.ts | 208 +++++++++++++++++++++
+ packages/providers/index.ts                        |   2 +-
+ packages/providers/models.ts                       |  15 ++
+ packages/providers/registry.ts                     |   4 +
+ packages/providers/services.ts                     |   2 +
+ packages/providers/types.ts                        |  15 +-
+ 27 files changed, 671 insertions(+), 21 deletions(-)
+
+$ git show --stat --format="%H %s" c0635aa23   # the Google Gemini provider, as merged
+c0635aa23858e4b426674215d25ce0cfd8a03c81 Add Google Gemini API key support to Studio Code providers (#5899)
+
+ apps/cli/ai/tests/auth.test.ts                     |  11 +--
+ apps/studio/forge.config.ts                        |  12 +--
+ .../lib/tests/settings-tracks.test.ts              |   1 +
+ docs/design-docs/providers.md                      |   3 +-
+ .../developer-tools/studio/studio-code/index.md    |   3 +-
+ eslint.config.mjs                                  |   2 +-
+ packages/agent/browser/models.ts                   |   7 +-
+ packages/agent/browser/tests/gemini-stream.test.ts |  34 +++++++
+ .../agent/protocol/sessions/tests/model.test.ts    |   1 +
+ packages/agent/shared/models.ts                    |   6 ++
+ packages/common/lib/provider-config.ts             |   1 +
+ packages/common/lib/tests/ai-settings.test.ts      |   3 +
+ packages/providers/README.md                       |   2 +-
+ packages/providers/anthropic/descriptor.ts         |  11 ++-
+ packages/providers/gemini/account.ts               |  29 ++++++
+ packages/providers/gemini/ai.ts                    |  31 ++++++
+ packages/providers/gemini/config.ts                |   8 ++
+ packages/providers/gemini/descriptor.ts            |  56 +++++++++++
+ packages/providers/gemini/images.ts                | 106 +++++++++++++++++++++
+ packages/providers/gemini/services.ts              |  10 ++
+ packages/providers/gemini/tests/images.test.ts     |  70 ++++++++++++++
+ packages/providers/gemini/tests/provider.test.ts   |  63 ++++++++++++
+ packages/providers/models.ts                       |   2 +
+ packages/providers/registry.ts                     |   4 +
+ packages/providers/services.ts                     |   2 +
+ packages/providers/types.ts                        |   6 +-
+ packages/providers/wpcom/ai/images.ts              |  35 +++++--
+ scripts/create-plugin-bundle.ts                    |   1 -
+ scripts/create-standalone-bundle.ts                |   1 -
+ 29 files changed, 489 insertions(+), 32 deletions(-)
