@@ -1,0 +1,13 @@
+# The bundled default PHP package (8.4.27-studio-1, darwin-arm64: php 70,920,304 bytes + ext/xdebug.so + runtime.json) compressed several ways
+# Commands: zip -r -6/-9; tar | gzip -6; tar | xz -6; node zlib brotliCompressSync quality 11 lgwin 24 and zstdCompressSync level 19 on the tar (71,533,056 bytes)
+26402399 php-d6.zip
+26275702 php-d9.zip
+26341061 php.tar.gz
+18044044 php.tar.xz
+18508566 tar + brotli q11 w24 (compress 108.7 s, decompress 156 ms)
+20625891 tar + zstd 19 (compress 10.4 s, decompress 64 ms)
+
+# 2.2.0 deb compression: curl -r 0-300 <studio-x64-v2.2.0.deb> | strings
+!<arch>
+debian-binary ...
+control.tar.xz ...  (7zXZ magic follows: the deb is xz-compressed)

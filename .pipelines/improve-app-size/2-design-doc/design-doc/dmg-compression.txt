@@ -1,0 +1,7 @@
+# Baseline macOS arm64 DMG built as CI builds it (npm run make:dmg-arm64: appdmg, UDZO with -imagekey zlib-level=9), then converted with hdiutil convert -format <f>
+336770658 Studio-darwin-arm64.dmg (UDZO zlib-9, make:dmg-arm64 exit 0)
+331125506 ULFO (lzfse), convert 5 s
+267061374 ULMO (lzma), convert 11 s
+# appdmg format option: UDZO default (node_modules/appdmg/lib/appdmg.js: global.opts.format || 'UDZO'); README lists ULMO 'macOS 10.15+ only'
+# Packaged Info.plist LSMinimumSystemVersion: 13.0
+# 2.2.0 published arm64 DMG for comparison: 337,444,773 bytes (spec/release-2.2.0-download-sizes.txt)

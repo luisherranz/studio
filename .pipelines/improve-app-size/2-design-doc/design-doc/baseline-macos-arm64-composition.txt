@@ -1,0 +1,84 @@
+# Baseline macOS arm64 package composition, worktree commit c9b62c80e (application source unchanged from 4cf642cd9), 2026-11-16T11:25Z
+# Built with: npm run make:macos-arm64 (exit 0, ~2 min); sizes: du -sk (KiB, APFS) and summed file bytes
+app bytes: 845641728   app KiB: 953456
+update zip bytes: 351685241
+
+## Top-level parts (KiB)
+367920	Resources/cli
+292444	Frameworks/Electron Framework.framework
+131152	Resources/bin
+82628	Resources/php-bin
+60324	Resources/app.asar
+13504	Resources/assets
+
+## Resources/bin (KiB; bin/node is 122545856 bytes)
+131136	Resources/bin/node
+4	Resources/bin/studio-cli-launcher.js
+4	Resources/bin/studio-cli.bat
+4	Resources/bin/studio-cli.sh
+4	Resources/bin/uninstall-studio-cli.sh
+
+## Resources/php-bin (bytes)
+258 ./8.4.27-studio-1/runtime.json
+608176 ./8.4.27-studio-1/ext/xdebug.so
+70920304 ./8.4.27-studio-1/php
+
+## Resources/cli (KiB)
+269016	node_modules
+75916	wp-files
+11216	ui
+256	mcp-ui
+212	agent-plugins
+
+## cli/node_modules: 25974 files, 180659905 bytes
+  *.map: 4661 files, 37984862 bytes
+  *.d.ts: 4423 files, 19859570 bytes
+  *.d.mts: 1998 files, 5881303 bytes
+  *.d.cts: 1371 files, 1012426 bytes
+  *.md: 697 files, 6292570 bytes
+  largest packages (KiB):
+    48784	@earendil-works
+    29688	openai
+    27400	date-fns
+    17068	playwright-core
+    14532	@anthropic-ai
+    11824	@google
+    9912	web-streams-polyfill
+    8776	zod
+    6484	@modelcontextprotocol
+    6184	typebox
+    5620	playwright
+    4220	lru-cache
+
+## Electron Framework locale packs (keep = English + Electron locales Studio's matcher maps to a translation, per electron-locale-match.txt) — command: sh scripts/lproj.sh <Contents>
+75376	<Contents>/Frameworks/Electron Framework.framework/Versions/A/Resources
+     220
+lproj total bytes=50367403 removable(non-Studio-language) bytes=30113308
+<Contents>/Frameworks/Electron Framework.framework/Versions/A/Resources/de_FEMININE.lproj:
+locale.pak
+
+<Contents>/Frameworks/Electron Framework.framework/Versions/A/Resources/de.lproj:
+locale.pak
+      55
+
+## app.asar (61769323 bytes): largest entries by summed file bytes
+  15511452 node_modules/sentry
+  10464186 dist/renderer-ui
+  6702555 dist/main
+  6141640 node_modules/zod
+  4574943 node_modules/@sentry/conventions
+  3789615 node_modules/@sentry/server-utils
+  2893309 node_modules/oxc-parser
+  2227646 node_modules/@sentry/bundler-plugins
+  2219151 node_modules/tus-js-client
+  1787197 node_modules/@sentry/core
+  1761746 node_modules/@oxc-parser/binding-darwin-arm64
+  1088990 node_modules/@sentry/server-runtime-injection
+  802710 node_modules/@sentry/browser
+  658804 node_modules/@sentry/replay
+  623096 node_modules/@sentry/electron
+  567888 node_modules/@sentry/node
+  Dependency chain (package.json of each, extracted asar): @sentry/electron@8.4.0 -> @sentry/node@11.10.0 -> @sentry/bundler-plugins@11.10.0 -> sentry@0.45.0 ("Sentry CLI"), oxc-parser@0.152.0
+  @sentry/node exports: . ./import ./vite ./rollup ./webpack ./esbuild; @sentry/bundler-plugins is referenced only from build/{cjs,esm}/bundler-plugin/{vite,rollup,webpack,esbuild}.js
+  dist/main/index.js requires from node_modules: @sentry/electron/main, @formatjs/intl-localematcher, @vscode/sudo-prompt, @wordpress/i18n, zod, tus-js-client, fs-extra, follow-redirects, file-stream-rotator, electron-squirrel-startup, chokidar, atomically, ignore, yaku, core-js/library, ajv/... (grep of require("..."))
+  Dependents in the extracted asar (package.json dependencies, optionalDependencies, peerDependencies): only oxc-parser depends on @oxc-project/types and @oxc-parser/*; only @sentry/bundler-plugins depends on oxc-parser and sentry; only @sentry/node depends on @sentry/bundler-plugins

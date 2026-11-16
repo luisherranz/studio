@@ -1,0 +1,20 @@
+# Bundled Node vs the app's Electron binary run as Node (ELECTRON_RUN_AS_NODE=1), baseline macOS arm64 package
+# Command: sh scripts/runtime-probe.sh <Studio.app/Contents>
+bundled node: 24.22.1 openssl=3.5.9 v8=13.6.233.17-node.58
+electron as node: 24.22.0 electron=44.9.1 openssl=0.0.0 boringssl=- v8=15.2.124.43-electron.0
+bundled node -e 0: 22.700 ms per run (10 runs)
+electron as node -e 0: 44.600 ms per run (10 runs)
+bundled node cli --version: 162.300 ms per run (10 runs)
+electron as node cli --version: 155.300 ms per run (10 runs)
+
+# Command: sh scripts/site-runtime-probe.sh <Studio.app/Contents> <bundled|electron> <workdir> <port> — isolated DEV_CONFIG_DIR, STUDIO_PROCESS_MANAGER_HOME and STUDIO_BASE_PORT; stop --all afterwards
+bundled create+start exit=0 seconds=4.57
+bundled start exit=0 seconds=1.11
+bundled http status: 200
+electron create+start exit=0 seconds=4.17
+electron start exit=0 seconds=1.04
+electron http status: 200
+# Config folder after create+start (du -sk, KiB), same for both runtimes:
+70040	config/php-bin
+53364	config/server-files/phpmyadmin-versions
+116976	config/server-files/wordpress-versions

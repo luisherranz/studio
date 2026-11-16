@@ -1,0 +1,29 @@
+# Studio's language for each Electron runtime locale: match([locale], supportedLocales, 'en') as apps/studio/src/lib/locale-node.ts getSupportedLocale() calls it
+# Command: node scripts/locale-match.mjs <repo> <the 55 Electron 44.9.1 locales> (script in this folder); locales not listed below map to en
+supportedLocales: ar ckb de en es fr he hu id it ja ko nl pl pt-br ru sv tr vi uk zh-cn zh-tw
+af -> nl
+ar -> ar
+ca -> es
+de -> de
+es -> es
+es-419 -> es
+fr -> fr
+he -> he
+hu -> hu
+id -> id
+it -> it
+ja -> ja
+ko -> ko
+ms -> id
+nl -> nl
+pl -> pl
+pt-BR -> pt-br
+pt-PT -> pt-br
+ru -> ru
+sv -> sv
+tr -> tr
+uk -> uk
+vi -> vi
+zh-CN -> zh-cn
+zh-TW -> zh-tw
+Electron locales mapped to a Studio translation: af ar ca de es es-419 fr he hu id it ja ko ms nl pl pt-BR pt-PT ru sv tr uk vi zh-CN zh-TW

@@ -1,0 +1,17 @@
+# Candidate removals measured on the baseline macOS arm64 package: raw bytes, and compressed with zip -6 and xz -6 (the deb's compressor)
+# Command: sh scripts/prune-estimate.sh <Studio.app/Contents> <extracted app.asar> <out> (script in this folder)
+cli-maps-decls entries=12453 raw=64738161 zip6=17259771 xz6=5184372
+asar-maps-decls entries=1646 raw=6530177 zip6=1915809 xz6=559916
+asar-build-tools entries=273 raw=22438694 zip6=6509801 xz6=3569736
+electron-lproj-unpicked entries=112 raw=10752 zip6=7025846 xz6=4458772
+# electron-lproj-unpicked raw: the entries are directories; their file bytes are in baseline-macos-arm64-composition.txt (30,113,308 bytes with the matcher-derived keep list)
+
+# Runtime readers of the candidate file kinds in the packaged CLI (grep over node_modules and the CLI chunks, *.js/*.mjs/*.cjs)
+## .d.ts: matches are package.json metadata embedded in bundles ("types": ...) and jiti's resolver extension table, e.g.:
+{join:Se}=a.posix,Ie={ts:[".ts",".tsx",".d.ts"],cts:[".cts",".d.cts"],mts:[
+## source maps: only playwright-core/lib/utilsBundle.js and playwright/lib/transform/esmLoader.js carry source-map-support (stack-trace rewriting); none of the CLI chunks enable source maps
+## markdown: @earendil-works/pi-coding-agent resolves its own docs at runtime:
+function getChangelogPath(){return resolve(join2(getPackageDir(),"CHANGELOG.md"))
+function getDocsPath(){return resolve(join2(getPackageDir(),"docs"))
+function getReadmePath(){return resolve(join2(getPackageDir(),"README.md"))
+## Studio's agent configures no pi extensions: grep -rn 'jiti|extensionPaths|additionalExtension|extensions:' packages/agent/node packages/agent/shared -> no matches
