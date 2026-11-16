@@ -1,26 +1,22 @@
-import { anthropicServices } from './anthropic/services';
-import { geminiServices } from './gemini/services';
-import { githubCopilotServices } from './github-copilot/services';
-import { openaiServices } from './openai/services';
-import { spacefastServices } from './spacefast/services';
-import { wpcomServices } from './wpcom/services';
-import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
+/// <reference types="vite/client" />
+import type { ProviderConfigs, ProviderId, ProviderSite } from './registry';
+import type { ProviderServices } from './types';
 
-const SERVICES: {
-	[ Id in ProviderId ]: ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
-} = {
-	wpcom: wpcomServices,
-	anthropic: anthropicServices,
-	openai: openaiServices,
-	gemini: geminiServices,
-	'github-copilot': githubCopilotServices,
-	spacefast: spacefastServices,
-};
+// Every provider folder's services, which its `services.ts` exports as `services`.
+const SERVICES = Object.values(
+	import.meta.glob< ProviderServices >( './*/services.ts', { eager: true, import: 'services' } )
+);
 
 export function getProviderServices< Id extends ProviderId >(
 	id: Id
 ): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
-	return SERVICES[ id ];
+	const services = SERVICES.find( ( candidate ) => candidate.id === id );
+	if ( ! services ) {
+		throw new Error(
+			`The ${ id } provider has no services: its folder's services.ts exports them as \`services\`, from defineServices().`
+		);
+	}
+	return services as ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
 }
 
 // Previews upload to WordPress.com the way a push does, until they are a capability of their own.
