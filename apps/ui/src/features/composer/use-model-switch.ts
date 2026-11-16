@@ -3,6 +3,7 @@ import { toStoredProviderId, type ProviderId } from '@studio/providers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { refreshChosenModel } from '@/data/queries/use-ai-settings';
 import {
 	createModelChangeEntry,
 	openNewSession,
@@ -85,10 +86,12 @@ export function useModelSwitch( {
 	const applySameFamilyModel = useCallback(
 		( picked: AiModelId ) => {
 			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
-				connector.setSessionModel( id, picked )
+				connector
+					.setSessionModel( id, picked )
+					.then( () => refreshChosenModel( queryClient, picked ) )
 			);
 		},
-		[ appendEntryOptimistically, connector ]
+		[ appendEntryOptimistically, connector, queryClient ]
 	);
 
 	const sessionHasTurns = useMemo(
@@ -109,10 +112,12 @@ export function useModelSwitch( {
 				return;
 			}
 			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), ( id ) =>
-				connector.setSessionProvider( id, picked, nextModel )
+				connector
+					.setSessionProvider( id, picked, nextModel )
+					.then( () => refreshChosenModel( queryClient, nextModel ) )
 			);
 		},
-		[ appendEntryOptimistically, connector, model, onSwitchSession, sessionHasTurns ]
+		[ appendEntryOptimistically, connector, model, onSwitchSession, queryClient, sessionHasTurns ]
 	);
 
 	const changeModel = useCallback(
@@ -172,6 +177,7 @@ export function useModelSwitch( {
 					)
 					.catch( () => undefined );
 			}
+			refreshChosenModel( queryClient, pickedModel );
 			saveComposerDraft( newSession.id, { text, attachments } );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );

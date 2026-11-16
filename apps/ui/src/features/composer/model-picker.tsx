@@ -9,7 +9,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef, useState, type ComponentType, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAiSettings, useListedModels } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -66,6 +66,8 @@ export function ModelPicker( {
 	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: preferences } = useUserPreferences();
 	const { data: aiSettings } = useAiSettings();
+	// A server the user runs lists its models: read them each time the picker opens.
+	const listedModels = useListedModels( providers, { enabled: open } );
 	const isWpcom = sessionProvider === 'wpcom';
 
 	const modelLabel = findAiModel( model )?.model.label() ?? model;
@@ -86,7 +88,10 @@ export function ModelPicker( {
 		modelDetails.push( note );
 	}
 	// A provider whose plan decides which models it runs offers only those.
-	const modelsOf = ( provider: ProviderId ) => {
+	const modelsOf = ( provider: ProviderId ): readonly { id: AiModelId }[] => {
+		if ( getProvider( provider ).ai?.userServer ) {
+			return listedModels[ provider ] ?? [];
+		}
 		const account = aiSettings?.accounts[ provider ];
 		return getAiModels( provider, account?.connected ? account : undefined );
 	};

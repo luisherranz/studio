@@ -1,13 +1,15 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ConnectError, NotConnectedError } from '@studio/providers';
+import { ConnectError, getDefaultAiModel, NotConnectedError } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
 	readAiSettings,
+	recordAiModelChoice,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
 import {
@@ -18,6 +20,7 @@ import {
 } from '@studio/common/lib/provider-config';
 
 const anthropic = getProviderServices( 'anthropic' );
+const localLlm = getProviderServices( 'local-llm' );
 const wpcom = getProviderServices( 'wpcom' );
 const disconnected = { connected: false };
 
@@ -59,7 +62,9 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				spacefast: disconnected,
+				'local-llm': disconnected,
 			},
+			chosenModels: {},
 		} );
 	} );
 
@@ -77,7 +82,9 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				spacefast: disconnected,
+				'local-llm': disconnected,
 			},
+			chosenModels: {},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
@@ -210,7 +217,9 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				spacefast: disconnected,
+				'local-llm': disconnected,
 			},
+			chosenModels: {},
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
@@ -305,6 +314,63 @@ describe( 'ai settings', () => {
 		const context = await readSignInContext( 'openai' );
 		expect( context.remembered ).toEqual( { clientId: 'oaiapp_1' } );
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
+	} );
+
+	it( 'starts new chats on a local server on the model chosen last, until it connects again', async () => {
+		// An Ollama server that lists two models, one of which can call tools.
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async ( url: string, init?: RequestInit ) => {
+				if ( url.endsWith( '/v1/models' ) ) {
+					return Response.json( { data: [ { id: 'gemma3:270m' }, { id: 'qwen3:0.6b' } ] } );
+				}
+				const { model } = JSON.parse( String( init?.body ) );
+				return Response.json( {
+					capabilities: model === 'qwen3:0.6b' ? [ 'completion', 'tools' ] : [ 'completion' ],
+				} );
+			} )
+		);
+		const newChatModel = async () => {
+			const { accounts, chosenModels } = await readAiSettings();
+			const account = accounts[ 'local-llm' ];
+			return getDefaultAiModel( 'local-llm', {
+				account: account.connected ? account : undefined,
+				chosenModel: chosenModels?.[ 'local-llm' ],
+			} );
+		};
+
+		const settings = await connectProvider( localLlm, 'server', {
+			address: 'localhost:11434',
+			apiKey: '',
+		} );
+		expect( settings.accounts[ 'local-llm' ] ).toEqual( {
+			connected: true,
+			method: 'server',
+			summary: 'http://localhost:11434',
+			model: 'local-llm/qwen3:0.6b',
+		} );
+		await expect( listProviderModels( localLlm ) ).resolves.toEqual( [
+			{ id: 'local-llm/gemma3:270m', name: 'gemma3:270m', supportsImages: false },
+			{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
+		] );
+		expect( fetch ).toHaveBeenCalledWith( 'http://localhost:11434/v1/models', expect.anything() );
+		await expect( newChatModel() ).resolves.toBe( 'local-llm/qwen3:0.6b' );
+
+		// Only a model a local server lists is remembered.
+		await recordAiModelChoice( 'claude-sonnet-5-5' );
+		await recordAiModelChoice( 'local-llm/gemma3:270m' );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			chosenModels: { 'local-llm': 'local-llm/gemma3:270m' },
+		} );
+		expect( readShared().chosenAiModels ).toEqual( { 'local-llm': 'local-llm/gemma3:270m' } );
+		await expect( newChatModel() ).resolves.toBe( 'local-llm/gemma3:270m' );
+
+		await connectProvider( localLlm, 'server', { address: 'localhost:11434', apiKey: '' } );
+		await expect( newChatModel() ).resolves.toBe( 'local-llm/qwen3:0.6b' );
+
+		await recordAiModelChoice( 'local-llm/gemma3:270m' );
+		await disconnectProvider( localLlm );
+		expect( readShared().chosenAiModels ).toBeUndefined();
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

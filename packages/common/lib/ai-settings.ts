@@ -2,24 +2,35 @@ import {
 	AI_PROVIDER_IDS,
 	ConnectError,
 	DEFAULT_PROVIDER_ID,
+	findAiModel,
 	getConnectMethod,
 	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
+	servesAiModel,
 	toStoredProviderId,
 	type AccountDetails,
+	type AiModelId,
 	type AiProviderId,
+	type ListedAiModel,
 	type ProviderConfigs,
 	type ProviderId,
 	type ProviderServices,
 } from '@studio/providers';
 import {
 	readAiFields,
+	readFreshProviderConfig,
 	readProviderConfig,
 	updateAiFields,
 	writeProviderConfig,
 } from './provider-config';
 import { receiveRedirect } from './provider-connect';
+import {
+	lockSharedConfig,
+	readSharedConfig,
+	saveSharedConfig,
+	unlockSharedConfig,
+} from './shared-config';
 
 // A provider's account as surfaces show it; never the credential itself.
 export type ProviderAccount = { connected: false } | ( { connected: true } & AccountDetails );
@@ -28,6 +39,9 @@ export interface AiSettings {
 	// The chat provider new conversations use.
 	provider: AiProviderId;
 	accounts: Record< ProviderId, ProviderAccount >;
+	// The model the user chose last on each provider whose models a server they run lists, which
+	// new chats on it start on.
+	chosenModels?: Partial< Record< ProviderId, AiModelId > >;
 }
 
 /** The saved chat provider, or undefined when none was ever chosen. */
@@ -48,9 +62,20 @@ async function readAccount( id: ProviderId ): Promise< ProviderAccount > {
 	return describeAccount( id, await readProviderConfig( id ) );
 }
 
+async function readChosenModels(): Promise< NonNullable< AiSettings[ 'chosenModels' ] > > {
+	const { chosenAiModels = {} } = await readSharedConfig();
+	return Object.fromEntries(
+		AI_PROVIDER_IDS.flatMap( ( id ) => {
+			const model = chosenAiModels[ toStoredProviderId( id ) ];
+			return model && servesAiModel( id, model ) ? [ [ id, model ] ] : [];
+		} )
+	);
+}
+
 export async function readAiSettings(): Promise< AiSettings > {
-	const [ provider, ...accounts ] = await Promise.all( [
+	const [ provider, chosenModels, ...accounts ] = await Promise.all( [
 		readSelectedAiProvider(),
+		readChosenModels(),
 		...PROVIDER_IDS.map( readAccount ),
 	] );
 	return {
@@ -58,7 +83,54 @@ export async function readAiSettings(): Promise< AiSettings > {
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id, index ) => [ id, accounts[ index ] ] )
 		) as AiSettings[ 'accounts' ],
+		chosenModels,
 	};
+}
+
+// Remembers `model` as the one new chats on the provider start on, or forgets it.
+async function writeChosenModel( provider: ProviderId, model: AiModelId | undefined ) {
+	const stored = toStoredProviderId( provider );
+	if ( ( await readSharedConfig() ).chosenAiModels?.[ stored ] === model ) {
+		return;
+	}
+	try {
+		await lockSharedConfig();
+		const shared = await readSharedConfig();
+		const { [ stored ]: _removed, ...others } = shared.chosenAiModels ?? {};
+		shared.chosenAiModels = model ? { ...others, [ stored ]: model } : others;
+		if ( ! Object.keys( shared.chosenAiModels ).length ) {
+			delete shared.chosenAiModels;
+		}
+		await saveSharedConfig( shared );
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+/**
+ * Records that the user chose `model`, when a server they run lists it: new chats on its provider
+ * start on it from then on. Other models leave the settings as they are.
+ */
+export async function recordAiModelChoice( model: string ): Promise< void > {
+	const provider = findAiModel( model )?.provider;
+	if ( provider && getProvider( provider ).ai?.userServer ) {
+		await writeChosenModel( provider, model as AiModelId );
+	}
+}
+
+/**
+ * The models the server of a provider whose models a server the user runs lists (from
+ * `@studio/providers/services`) lists now, read with its stored config. Throws, with the words for
+ * it, when the server doesn't answer.
+ */
+export async function listProviderModels< Config >(
+	services: ProviderServices< Config >
+): Promise< ListedAiModel[] > {
+	const listModels = services.ai?.listModels;
+	if ( ! listModels ) {
+		throw new Error( `${ getProvider( services.id ).label } doesn't list models from a server.` );
+	}
+	return listModels( await readFreshProviderConfig( services ) );
 }
 
 /** Persists the provider without validation — for flows that already ran it. */
@@ -70,7 +142,8 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
  * Connects the provider (from `@studio/providers/services`) with `method` and what the user
  * gave: a form's values, or the handoff of the connection `startProviderConnect` started, which a
  * loopback sign-in completes with its redirect. The provider checks them, and its config is
- * stored only when it accepts them.
+ * stored only when it accepts them. Studio forgets the model the user chose on it, which a server
+ * connected anew may not have.
  */
 export async function connectProvider< Config >(
 	services: ProviderServices< Config >,
@@ -86,6 +159,7 @@ export async function connectProvider< Config >(
 			: input
 	);
 	await writeProviderConfig( id, config as ProviderConfigs[ ProviderId ] );
+	await writeChosenModel( id, undefined );
 	// A chat provider becomes the default only when the current default can't be used, so
 	// connecting another provider never takes over from a connected WordPress.com.
 	const aiProvider = normalizeProviderId( id, AI_PROVIDER_IDS );
@@ -97,8 +171,8 @@ export async function connectProvider< Config >(
 }
 
 /**
- * Removes the provider's config, after letting it clean up on its side. A
- * selected provider that is no longer connected falls back to WordPress.com.
+ * Removes the provider's config, after letting it clean up on its side, and the model the user
+ * chose on it. A selected provider that is no longer connected falls back to WordPress.com.
  */
 export async function disconnectProvider< Config >(
 	services: ProviderServices< Config >
@@ -110,6 +184,7 @@ export async function disconnectProvider< Config >(
 		await services.account.disconnect?.( config as Config ).catch( () => undefined );
 	}
 	await writeProviderConfig( id, undefined );
+	await writeChosenModel( id, undefined );
 	if ( ( await readSelectedAiProvider() ) === id ) {
 		await persistSelectedAiProvider( DEFAULT_PROVIDER_ID );
 	}

@@ -1,10 +1,10 @@
-import { AI_PROVIDER_IDS, getConnectMethod } from '@studio/providers';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AI_PROVIDER_IDS, findAiModel, getConnectMethod, getProvider } from '@studio/providers';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiProviderId, PendingConnect, ProviderId } from '@studio/providers';
+import type { AiProviderId, ListedAiModel, PendingConnect, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -17,6 +17,48 @@ export function useAiSettings() {
 		// Read each launch: a saved copy may come from a build with other providers.
 		meta: { persist: false },
 	} );
+}
+
+const LISTED_MODELS_QUERY_KEY = [ 'listed-models' ] as const;
+
+/**
+ * The models the servers of `providers` list, for each provider whose models a server the user
+ * runs lists: read from the server whenever the query is enabled, and never kept between runs. A
+ * server that doesn't answer lists none.
+ */
+export function useListedModels( providers: readonly ProviderId[], { enabled = true } = {} ) {
+	const connector = useConnector();
+	const { listProviderModels } = connector;
+	const listed = listProviderModels
+		? providers.filter( ( id ) => getProvider( id ).ai?.userServer )
+		: [];
+	return useQueries( {
+		queries: listed.map( ( provider ) => ( {
+			queryKey: [ ...LISTED_MODELS_QUERY_KEY, provider ],
+			queryFn: () => listProviderModels!( provider ),
+			enabled,
+			retry: false,
+			meta: { persist: false },
+		} ) ),
+		combine: ( results ) =>
+			Object.fromEntries(
+				listed.map( ( provider, index ) => [ provider, results[ index ].data ] )
+			) as Partial< Record< ProviderId, ListedAiModel[] > >,
+	} );
+}
+
+/**
+ * Re-reads the AI settings after the user picked `model` on a provider whose models a server they
+ * run lists, which Studio remembers for new chats on it.
+ */
+export function refreshChosenModel(
+	queryClient: ReturnType< typeof useQueryClient >,
+	model: string
+) {
+	const provider = findAiModel( model )?.provider;
+	if ( provider && getProvider( provider ).ai?.userServer ) {
+		void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
+	}
 }
 
 // Whether a provider that serves AI models is connected.

@@ -31,8 +31,8 @@ export async function isProviderConnected( provider: ProviderId ): Promise< bool
 	return ( readInlineConfig( provider ) ?? ( await readProviderConfig( provider ) ) ) !== undefined;
 }
 
-// Asks for a form's fields. The provider checks the values once the last one is entered, and a
-// rejection asks again.
+// Asks for a form's fields, leaving an optional one empty when the answer is. The provider checks
+// the values once the last one is entered, and a rejection asks again.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
 	const fields = getConnectFields( method );
 	const values: Record< string, string > = {};
@@ -40,8 +40,11 @@ async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise<
 		const prompt = field.secret ? password : input;
 		values[ field.name ] = await prompt( {
 			message: sprintf(
-				/* translators: %s: what the provider asks for, such as an API key */
-				__( '%s (saved for future use):' ),
+				field.required
+					? /* translators: %s: what the provider asks for, such as an API key */
+					  __( '%s (saved for future use):' )
+					: /* translators: %s: what the provider asks for, such as an API key */
+					  __( '%s (optional, saved for future use):' ),
 				field.title
 			),
 			...( field.secret ? { mask: '*' } : {} ),

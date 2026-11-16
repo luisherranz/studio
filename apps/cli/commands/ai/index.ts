@@ -20,7 +20,12 @@ import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
-import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import {
+	persistSelectedAiProvider,
+	readAiSettings,
+	readSelectedAiProvider,
+	recordAiModelChoice,
+} from '@studio/common/lib/ai-settings';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
@@ -34,6 +39,7 @@ import {
 	getConnectMethod,
 	getDefaultAiModel,
 	getProvider,
+	servesAiModel,
 	toStoredProviderId,
 	type AiModelId,
 	type AiProviderId,
@@ -74,10 +80,6 @@ import type {
 import type { LoadedAiSession, TurnStatus } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
-
-function servesModel( provider: AiProviderId, model: string ): boolean {
-	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ?? false;
-}
 
 const logger = new Logger< string >();
 
@@ -141,6 +143,22 @@ async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 		canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
 	} );
 }
+
+// The model a new chat on the provider starts on; WordPress.com's also depends on its AI credits.
+async function readDefaultModel( provider: AiProviderId ): Promise< AiModelId > {
+	if ( ! getProvider( provider ).ai?.userServer ) {
+		return getDefaultAiModel( provider );
+	}
+	const { accounts, chosenModels } = await readAiSettings();
+	const account = accounts[ provider ];
+	return getDefaultAiModel( provider, {
+		account: account.connected ? account : undefined,
+		chosenModel: chosenModels?.[ provider ],
+	} );
+}
+
+// Analytics never name a model a server the user runs lists: they choose its name.
+const USER_SERVER_TRACKS_MODEL = 'user-server-model';
 
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
@@ -222,10 +240,10 @@ export async function runCommand( options: {
 	// The recorded model only sticks when the provider still serves it — old
 	// wpcom sessions snap to the provider default instead.
 	const recordedModel =
-		resumeContext.model && servesModel( currentProvider, resumeContext.model )
+		resumeContext.model && servesAiModel( currentProvider, resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId = recordedModel ?? getDefaultAiModel( currentProvider );
+	let currentModel: AiModelId = recordedModel ?? ( await readDefaultModel( currentProvider ) );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -284,7 +302,7 @@ export async function runCommand( options: {
 						// Adopt the recorded model only when the provider still
 						// serves it; otherwise keep the (quota-based) default.
 						const sessionModel = readRecordedSessionModel( sm.getEntries() );
-						if ( sessionModel && servesModel( currentProvider, sessionModel ) ) {
+						if ( sessionModel && servesAiModel( currentProvider, sessionModel ) ) {
 							quotaDefaultApplicable = false;
 							currentModel = sessionModel;
 							ui.currentModel = currentModel;
@@ -376,6 +394,11 @@ export async function runCommand( options: {
 		} finally {
 			ui.start();
 		}
+		// Until the provider connects, the chat holds a model it doesn't serve.
+		if ( provider === currentProvider && ! servesAiModel( currentProvider, currentModel ) ) {
+			currentModel = await readDefaultModel( currentProvider );
+			ui.currentModel = currentModel;
+		}
 	}
 
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
@@ -390,16 +413,17 @@ export async function runCommand( options: {
 		// (e.g. switching from wpcom → anthropic while a tier is selected).
 		// Fall back to the provider's default — the quota-based one for
 		// WordPress.com.
-		if ( ! servesModel( currentProvider, currentModel ) ) {
+		if ( ! servesAiModel( currentProvider, currentModel ) ) {
 			currentModel =
 				currentProvider === DEFAULT_PROVIDER_ID
 					? wpcomDefaultModel
-					: getDefaultAiModel( currentProvider );
+					: await readDefaultModel( currentProvider );
 			ui.currentModel = currentModel;
 		}
 
 		await persistSelectedAiProvider( currentProvider );
 		await persistProviderPin();
+		await recordAiModelChoice( currentModel );
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(
@@ -636,7 +660,9 @@ export async function runCommand( options: {
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
 			provider: toStoredProviderId( currentProvider ),
-			model: currentModel,
+			model: getProvider( currentProvider ).ai?.userServer
+				? USER_SERVER_TRACKS_MODEL
+				: currentModel,
 			model_family: currentProvider === 'wpcom' ? 'studio' : currentProvider,
 		};
 		const turnStartedAt = Date.now();
