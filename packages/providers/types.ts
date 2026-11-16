@@ -631,9 +631,9 @@ type SitesServicesOf< Config, Site extends RemoteSite, Sites > = Omit<
 export type ServicesOf< Descriptor extends { id: string } > = {
 	account: AccountServices< ConfigOf< Descriptor > > &
 		( Descriptor extends { account: { methods: readonly ( infer Method )[] } }
-			? Method extends { kind: SignInKind }
-				? Required< Pick< AccountServices< ConfigOf< Descriptor > >, 'start' > >
-				: unknown
+			? [ Extract< Method, { kind: SignInKind } > ] extends [ never ]
+				? unknown
+				: Required< Pick< AccountServices< ConfigOf< Descriptor > >, 'start' > >
 			: unknown );
 } & ( Descriptor extends { ai: object }
 	? { ai: AiServices< ConfigOf< Descriptor >, ModelIdOf< Descriptor > > }

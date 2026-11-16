@@ -147,6 +147,19 @@ describe( 'services', () => {
 		defineServices( chat, { account, ai: {} } );
 		// @ts-expect-error A device sign-in needs `start`.
 		defineServices( hosting, { account, sites: hostingSites } );
+		for ( const kind of [ 'device', 'loopback' ] as const ) {
+			const signInOrForm = defineProvider( {
+				...chat,
+				account: {
+					...chat.account,
+					methods: [ ...methods, { id: 'sign-in', label: () => 'Sign in', kind } ],
+				},
+			} );
+			const ai = { model: async () => connection };
+			// @ts-expect-error A sign-in needs `start`, whatever other methods there are.
+			defineServices( signInOrForm, { account, ai } );
+			defineServices( signInOrForm, { account: signInAccount, ai } );
+		}
 		const { push: _push, ...withoutPush } = hostingSites;
 		// @ts-expect-error Remote sites need `push`.
 		defineServices( hosting, { account: signInAccount, sites: withoutPush } );
