@@ -1,0 +1,340 @@
+$ git diff 924a8266928b68b570395ead0afd880b6c2ea4be b4b786335 -- packages/providers/types.ts packages/providers/models.ts packages/providers/connection.ts   # rp/local-llm-connector at b4b786335
+diff --git a/packages/providers/connection.ts b/packages/providers/connection.ts
+index 3f18ce6f6..d0323709a 100644
+--- a/packages/providers/connection.ts
++++ b/packages/providers/connection.ts
+@@ -9,6 +9,8 @@ export interface ConnectField {
+ 	placeholder?: string;
+ 	// Never shown back: a password input, or a masked prompt.
+ 	secret: boolean;
++	// Whether it needs a value; one whose schema accepts an empty value may be left empty.
++	required: boolean;
+ 	// An error message for the value, or undefined when it is valid.
+ 	validate( value: string ): string | undefined;
+ }
+@@ -33,6 +35,7 @@ export function getConnectFields( method: ConnectMethod ): ConnectField[] {
+ 			description: typeof meta.description === 'string' ? meta.description : undefined,
+ 			placeholder: typeof examples[ 0 ] === 'string' ? examples[ 0 ] : undefined,
+ 			secret: meta.writeOnly === true,
++			required: ! schema.safeParse( '' ).success,
+ 			validate: ( value ) => {
+ 				const result = schema.safeParse( value );
+ 				return result.success ? undefined : result.error.issues[ 0 ]?.message;
+diff --git a/packages/providers/models.ts b/packages/providers/models.ts
+index c81b83a06..21d5016df 100644
+--- a/packages/providers/models.ts
++++ b/packages/providers/models.ts
+@@ -6,17 +6,43 @@ import type { OPENAI_AI_MODELS } from './openai/descriptor';
+ import type { AiModel, AiProviderId, ProviderId } from './types';
+ import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
+ 
+-export type AiModelId = (
+-	| typeof WPCOM_AI_MODELS
+-	| typeof ANTHROPIC_AI_MODELS
+-	| typeof OPENAI_AI_MODELS
+-	| typeof GEMINI_AI_MODELS
+-	| typeof GITHUB_COPILOT_AI_MODELS
+-)[ number ][ 'id' ];
++// The providers whose models are the ones a server the user runs lists (`ai.userServer`).
++type UserServerAiProviderId = 'local-llm';
++
++// A model Studio knows, or a model a server the user runs lists: that provider's id, a slash, and
++// the server's name for the model, verbatim.
++export type AiModelId =
++	| (
++			| typeof WPCOM_AI_MODELS
++			| typeof ANTHROPIC_AI_MODELS
++			| typeof OPENAI_AI_MODELS
++			| typeof GEMINI_AI_MODELS
++			| typeof GITHUB_COPILOT_AI_MODELS
++	  )[ number ][ 'id' ]
++	| `${ UserServerAiProviderId }/${ string }`;
++
++// Studio's id for a model the provider's server lists under `name`.
++export function toUserServerModelId( provider: UserServerAiProviderId, name: string ): AiModelId {
++	return `${ provider }/${ name }`;
++}
++
++// The provider whose server lists the model, and the server's name for it, for an id
++// `toUserServerModelId` made.
++function parseUserServerModelId(
++	id: string
++): { provider: AiProviderId; name: string } | undefined {
++	const separator = id.indexOf( '/' );
++	const provider = AI_PROVIDER_IDS.find( ( candidate ) => candidate === id.slice( 0, separator ) );
++	const name = id.slice( separator + 1 );
++	return provider && getProvider( provider ).ai?.userServer && name
++		? { provider, name }
++		: undefined;
++}
+ 
+ /**
+  * The models a surface offers for the provider: the ones the account it is given can run
+- * (`AccountDetails.models`), or every model the provider lists when it doesn't narrow them.
++ * (`AccountDetails.models`), or every model the provider lists when it doesn't narrow them. None
++ * for a provider whose models a server the user runs lists, which surfaces read from the server.
+  */
+ export function getAiModels(
+ 	provider: ProviderId,
+@@ -27,28 +53,61 @@ export function getAiModels(
+ 	return offered ? models.filter( ( { id } ) => offered.includes( id ) ) : models;
+ }
+ 
+-// A model by its id, and the first provider that serves it.
++/**
++ * A model by its id, and the first provider that serves it. A model a server the user runs lists
++ * is labelled with the server's name for it, without reaching the server, so whether it reads
++ * images is left unsaid.
++ */
+ export function findAiModel(
+ 	id: string
+ ): { provider: AiProviderId; model: AiModel< AiModelId > } | undefined {
+ 	for ( const provider of AI_PROVIDER_IDS ) {
+-		const model = getProvider( provider ).ai?.models.find( ( candidate ) => candidate.id === id );
++		const model = getProvider( provider ).ai?.models?.find( ( candidate ) => candidate.id === id );
+ 		if ( model ) {
+ 			return { provider, model };
+ 		}
+ 	}
+-	return undefined;
++	const listed = parseUserServerModelId( id );
++	return (
++		listed && {
++			provider: listed.provider,
++			model: { id: id as AiModelId, label: () => listed.name },
++		}
++	);
+ }
+ 
+-// `paidDefaultModel` when the account has paid AI credits left; callers
+-// without quota data get the plain default.
++/**
++ * Whether the provider serves the model: one it lists, or for a provider whose models a server
++ * the user runs lists, any model named for it, whether or not the server still has it.
++ */
++export function servesAiModel( provider: ProviderId, id: string ): boolean {
++	const ai = getProvider( provider ).ai;
++	return ai?.userServer
++		? parseUserServerModelId( id )?.provider === provider
++		: ai?.models?.some( ( model ) => model.id === id ) ?? false;
++}
++
++/**
++ * The model new chats on the provider start on. `paidDefaultModel` when the account has paid AI
++ * credits left; callers without quota data get the plain default. A provider whose models a
++ * server the user runs lists starts on the model the user chose last on it (`chosenModel`), or
++ * else the one its account proposes; until it is connected it has neither, and WordPress.com's
++ * default, which it doesn't serve, stands in.
++ */
+ export function getDefaultAiModel(
+ 	provider: ProviderId,
+-	options?: { canUsePaidModels?: boolean }
++	options?: {
++		canUsePaidModels?: boolean;
++		account?: { model?: AiModelId };
++		chosenModel?: AiModelId;
++	}
+ ): AiModelId {
+ 	const ai = getProvider( provider ).ai;
+ 	if ( ! ai ) {
+ 		throw new Error( `${ provider } offers no AI models` );
+ 	}
++	if ( ai.userServer ) {
++		return options?.chosenModel ?? options?.account?.model ?? getDefaultAiModel( 'wpcom' );
++	}
+ 	return ( options?.canUsePaidModels && ai.paidDefaultModel ) || ai.defaultModel;
+ }
+diff --git a/packages/providers/types.ts b/packages/providers/types.ts
+index d61fd69bb..b13114d63 100644
+--- a/packages/providers/types.ts
++++ b/packages/providers/types.ts
+@@ -1,6 +1,7 @@
+ import type { AnthropicConfig } from './anthropic/config';
+ import type { GeminiConfig } from './gemini/config';
+ import type { GithubCopilotConfig } from './github-copilot/config';
++import type { LocalLlmConfig } from './local-llm/config';
+ import type { AiModelId } from './models';
+ import type { OpenaiConfig } from './openai/config';
+ import type { SpacefastConfig } from './spacefast/config';
+@@ -16,10 +17,17 @@ export type ProviderId =
+ 	| 'openai'
+ 	| 'gemini'
+ 	| 'github-copilot'
+-	| 'spacefast';
++	| 'spacefast'
++	| 'local-llm';
+ 
+ // The providers that serve AI models.
+-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot';
++export type AiProviderId =
++	| 'wpcom'
++	| 'anthropic'
++	| 'openai'
++	| 'gemini'
++	| 'github-copilot'
++	| 'local-llm';
+ 
+ // What Studio stores for each provider.
+ export interface ProviderConfigs {
+@@ -29,6 +37,7 @@ export interface ProviderConfigs {
+ 	gemini: GeminiConfig;
+ 	'github-copilot': GithubCopilotConfig;
+ 	spacefast: SpacefastConfig;
++	'local-llm': LocalLlmConfig;
+ }
+ 
+ // The remote sites of each provider that offers them.
+@@ -71,6 +80,9 @@ export type ConnectMethod = {
+ 	label: () => string;
+ 	// What to do before connecting, in Markdown.
+ 	instructions?: () => string;
++	// Only a process on the user's computer can run it, such as the Desktop app, `studio ui`'s
++	// server or the CLI: a page can't reach what it checks.
++	hostOnly?: boolean;
+ } & (
+ 	| // A form rendered from `input`.
+ 	{ kind: 'form'; input: () => ConnectInputSchema }
+@@ -95,6 +107,9 @@ export interface AccountDetails {
+ 	// The provider's models this account can run, when its plan decides which: surfaces offer
+ 	// only these. Without it, the account runs every model the provider lists.
+ 	models?: AiModelId[];
++	// The model new chats on the account start on, for a provider whose models a server the user
++	// runs lists, which has no default of its own.
++	model?: AiModelId;
+ 	links?: { label: string; url: string }[];
+ }
+ 
+@@ -170,15 +185,39 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
+ 		// continues the same registration with it; never a credential.
+ 		remember?( config: Config ): Record< string, string > | undefined;
+ 	};
+-	ai?: {
+-		models: readonly AiModel< AiModelId >[];
+-		defaultModel: AiModelId;
+-		// The default when the account has paid AI credits left.
+-		paidDefaultModel?: AiModelId;
+-	};
++	ai?: ProviderAi;
+ 	sites?: ProviderSitesInfo< Site >;
+ }
+ 
++// The models a provider serves: a list Studio knows, or the ones a server the user runs lists.
++export type ProviderAi =
++	| {
++			models: readonly AiModel< AiModelId >[];
++			defaultModel: AiModelId;
++			// The default when the account has paid AI credits left.
++			paidDefaultModel?: AiModelId;
++			userServer?: undefined;
++	  }
++	| {
++			// The models are the ones a server the user runs lists, which surfaces read from it each
++			// time they offer them (`listModels`). New chats start on the model the user chose last
++			// on it, or the account's. Chats on it need no internet, and analytics never name them.
++			userServer: true;
++			models?: undefined;
++			defaultModel?: undefined;
++			paidDefaultModel?: undefined;
++	  };
++
++// A model a server the user runs lists, as surfaces offer it.
++export interface ListedAiModel {
++	// Studio's id for it, which sessions record.
++	id: AiModelId;
++	// The server's name for it.
++	name: string;
++	// Whether the server says the model reads images.
++	supportsImages: boolean;
++}
++
+ // Everything the runtime needs to register one model with pi.
+ export interface AiConnection {
+ 	piProvider: string;
+@@ -189,6 +228,10 @@ export interface AiConnection {
+ 	requestModelId?: string;
+ 	// Replaces a stream error's message; `undefined` keeps it.
+ 	rewriteError?: ( message: string ) => string | undefined;
++	// `model.contextWindow` is exactly the context the server runs the model with: the runtime
++	// compacts to fit it and never sends a request it can't hold, and a turn that still can't fit
++	// ends with `overflowMessage`.
++	exactContextWindow?: { overflowMessage: string };
+ }
+ 
+ export interface GenerateImageRequest {
+@@ -308,6 +351,8 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
+ 			model: AiModelId,
+ 			options: { sessionId?: string }
+ 		): Promise< AiConnection >;
++		// The models the server lists now, for a provider whose models a server the user runs lists.
++		listModels?( config: Config | undefined ): Promise< ListedAiModel[] >;
+ 		// Whether `generateImages` works with this config; defaults to true.
+ 		canGenerateImages?( config: Config ): boolean;
+ 		// Results keep the requests' order; a failure never aborts the rest.
+
+$ git show b4b786335:packages/providers/local-llm/descriptor.ts   # SVG markup elided
+import { __ } from '@wordpress/i18n';
+import { z } from 'zod';
+import { localLlmConfigSchema, type LocalLlmConfig } from './config';
+import type { Provider } from '../types';
+
+export const localLlmConnectInput = () =>
+	z.object( {
+		address: z
+			.string()
+			.trim()
+			.min( 1, __( 'Address is required' ) )
+			.meta( {
+				title: __( 'Server address' ),
+				description: __( 'Where your server listens, as it prints it when it starts.' ),
+				examples: [ 'http://localhost:11434' ],
+			} ),
+		apiKey: z
+			.string()
+			.trim()
+			.default( '' )
+			.meta( {
+				title: __( 'API key' ),
+				description: __( 'Only if your server asks for one.' ),
+				writeOnly: true,
+			} ),
+	} );
+
+// The address the user knows the server by: its API without the `/v1` path.
+export function getServerAddress( baseUrl: string ): string {
+	return baseUrl.replace( /\/v1$/, '' );
+}
+
+// A server rack, drawn in `currentColor`.
+const mark = …;
+
+export const localLlmProvider: Provider< LocalLlmConfig > = {
+	id: 'local-llm',
+	label: 'Local LLM',
+	description: () => __( 'Use the models a server you run serves, such as on this computer.' ),
+	icon: `<svg …>`,
+	logo: `<svg …>`,
+	account: {
+		configSchema: localLlmConfigSchema,
+		methods: [
+			{
+				id: 'server',
+				label: () => __( 'Server address' ),
+				kind: 'form',
+				input: localLlmConnectInput,
+				// The server is on the user's computer or network, which a page can't reach.
+				hostOnly: true,
+				instructions: () =>
+					__(
+						'Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.'
+					),
+			},
+		],
+		describe: ( config ) => ( {
+			method: config.method,
+			summary: getServerAddress( config.baseUrl ),
+			// Studio's id for the model, as `toUserServerModelId` names it.
+			model: `local-llm/${ config.model }` as const,
+		} ),
+	},
+	ai: { userServer: true },
+};
