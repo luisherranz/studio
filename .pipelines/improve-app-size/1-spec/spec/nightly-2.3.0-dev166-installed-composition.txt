@@ -1,0 +1,51 @@
+# Installed composition of nightly 2.3.0-dev166 (build 26362), unpacked from the update payloads the updates endpoint served
+# (macOS arm64 Studio.app.zip via ditto; Windows x64 full nupkg lib/net45 via unzip; Linux x64 .deb data.tar via ar+tar), 2026-11-16T10:29Z
+# This nightly predates trunk commit 0599ae89e (#5988): its cli/wp-files still holds unpacked WordPress and phpMyAdmin.
+# Sizes: du -sk (KiB on an APFS disk); files: find -type f | wc -l
+
+## macOS-arm64
+total_kib 1067584   files 36990
+
+## Windows-x64
+total_kib 1178752   files 36867
+
+## Linux-x64
+total_kib 1091888   files 36739
+
+## macOS-arm64 parts (KiB)
+294252	Contents/Frameworks
+224524	Contents/Resources/cli/wp-files
+251696	Contents/Resources/cli/node_modules
+10268	Contents/Resources/cli/ui
+118996	Contents/Resources/bin
+69456	Contents/Resources/php-bin
+60324	Contents/Resources/app.asar
+11972	Contents/Resources/assets
+11992	Contents/_CodeSignature
+cli/wp-files files 10316   cli/node_modules files 25974
+cli/node_modules *.map: 4661 files, 37984862 bytes
+cli/node_modules *.d.ts/*.d.mts/*.d.cts: 7792 files, 26753299 bytes
+
+## Windows-x64 parts (KiB)
+241408	Studio.exe
+49572	locales
+496384	resources/cli
+147916	resources/bin
+98264	resources/php-bin
+60324	resources/app.asar
+  bin/node.exe 93915464 bytes
+  bin/studio-cli-launcher.js 1884 bytes
+  bin/studio-cli.bat 790 bytes
+  bin/studio-cli.exe 57529672 bytes
+  bin/studio-cli.sh 1027 bytes
+  bin/uninstall-studio-cli.sh 322 bytes
+
+## Linux-x64 parts (KiB)
+228708	studio
+8900	locales
+496276	resources/cli
+137120	resources/bin
+87084	resources/php-bin
+60324	resources/app.asar
+
+## Electron locale packs shipped: 55 (Windows), 55 (Linux), 55 .lproj (macOS)

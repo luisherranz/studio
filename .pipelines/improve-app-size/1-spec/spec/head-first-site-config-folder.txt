@@ -1,0 +1,9 @@
+# Studio's config folder after the first site create at worktree HEAD 4cf642cd9 (CLI from 'npm run cli:build', run with a fresh DEV_CONFIG_DIR), 2026-11-16T10:31Z
+# Command: node apps/cli/dist/cli/main.mjs site create --path <config>/sites/improve-app-size-probe --skip-browser
+# The dev CLI ships no php-bin, so it downloaded PHP 8.4 (25.2 MB archive) into php-bin; a packaged app copies its bundled PHP there instead (apps/cli/migrations/06-install-bundled-default-php.ts).
+# du -sk (KiB):
+70040	php-bin
+116976	server-files/wordpress-versions/latest
+53364	server-files/phpmyadmin-versions
+170340	server-files
+# Shipped wp-files in the dev CLI build at HEAD (no language packs downloaded locally): 66252 KiB

@@ -1,0 +1,9 @@
+# Responses of Studio's updates endpoint (apps/studio/src/updates.ts STUDIO_UPDATES_ENDPOINT), 2026-11-16T10:32Z
+GET .../studio-app/updates?platform=darwin&studioArch=arm64&version=2.0.0
+{"url":"https:\/\/appscdn.wordpress.com\/downloads\/wordpress-com-studio\/mac-silicon\/v2.2.0\/25905\/update\/studio-arm64-v2.2.0.zip"}
+GET .../studio-app/updates?platform=darwin&studioArch=arm64&version=2.2.0&channel=nightly
+{"url":"https:\/\/appscdn.wordpress.com\/downloads\/wordpress-com-studio\/mac-silicon\/v2.3.0-dev166\/26362\/update\/studio-arm64-v2.3.0-dev166.zip"}
+GET .../studio-app/updates?platform=win32&studioArch=x64&version=2.2.0&channel=nightly
+{"url":"https:\/\/appscdn.wordpress.com\/downloads\/wordpress-com-studio\/windows-x64\/v2.3.0-dev166\/26362\/update\/studio-update-x64-v2.3.0-dev166-full.nupkg"}
+GET .../studio-app/updates?platform=linux&studioArch=x64&version=2.2.0&channel=nightly
+{"version":"2.3.0-dev166","downloadUrl":"https:\/\/appscdn.wordpress.com\/downloads\/wordpress-com-studio\/linux-x64\/v2.3.0-dev166\/26362\/update\/studio-x64-v2.3.0-dev166.deb"}
