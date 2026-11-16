@@ -1159,6 +1159,45 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
+	it.each( [
+		[ 'holds images back for', 'local-llm/qwen3:0.6b', false ],
+		[ 'sends images to', 'local-llm/gemma3:4b', true ],
+	] as const )(
+		'%s a local model by what its server says it reads',
+		async ( _case, model, sends ) => {
+			const connector = createFakeConnector(
+				{},
+				{
+					getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
+					listProviderModels: async () => [
+						{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
+						{ id: 'local-llm/gemma3:4b', name: 'gemma3:4b', supportsImages: true },
+					],
+				}
+			);
+			saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
+			const { input, onSend, queryClient } = await setup( { model }, connector );
+			await waitFor( () => expect( connector.listProviderModels ).toHaveBeenCalled() );
+			await waitFor( () => expect( queryClient.isFetching() ).toBe( 0 ) );
+
+			fireEvent.keyDown( input, { key: 'Enter' } );
+
+			if ( sends ) {
+				await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
+				expect( onSend.mock.calls[ 0 ][ 1 ]?.images ).toEqual( [
+					expect.objectContaining( { name: 'photo.png' } ),
+				] );
+			} else {
+				expect(
+					await screen.findByText(
+						'Choose a model that supports images before sending these attachments'
+					)
+				).toBeVisible();
+				expect( onSend ).not.toHaveBeenCalled();
+			}
+		}
+	);
+
 	it( 'adds a preview screenshot to the draft and sends it as an ordinary image', async () => {
 		saveComposerDraft( 'test', {
 			text: 'Please update this page',

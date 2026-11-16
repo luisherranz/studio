@@ -124,6 +124,40 @@ describe( 'Chat model picker', () => {
 		expect( screen.queryByRole( 'option', { name: /Gemini/ } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'offers the models a local server lists, read again each time it opens', async () => {
+		let served = [ 'qwen3:0.6b', 'gemma3:270m' ];
+		const connector = createFakeConnector(
+			{},
+			{
+				getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
+				listProviderModels: async () =>
+					served.map( ( name ) => ( {
+						id: `local-llm/${ name }` as const,
+						name,
+						supportsImages: false,
+					} ) ),
+			}
+		);
+		const { trigger, onModelChange } = await renderPicker( 'local-llm/qwen3:0.6b', connector );
+		expect( trigger ).toHaveTextContent( 'qwen3:0.6b' );
+
+		fireEvent.click( trigger );
+		const gemma = await screen.findByRole( 'option', { name: /^gemma3:270m/ } );
+		expect( gemma ).toHaveTextContent( 'Local LLM' );
+		expect( screen.getByRole( 'option', { name: /^qwen3:0\.6b/ } ) ).toBeInTheDocument();
+		fireEvent.click( gemma );
+		await waitFor( () =>
+			expect( onModelChange ).toHaveBeenCalledWith( 'local-llm/gemma3:270m', 'local-llm' )
+		);
+		await waitFor( () => expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument() );
+
+		// The user pulled a model into the server and removed another.
+		served = [ 'qwen3:0.6b', 'llama3.2:1b' ];
+		fireEvent.click( trigger );
+		expect( await screen.findByRole( 'option', { name: /^llama3\.2:1b/ } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: /^gemma3:270m/ } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'lists the tiers and closes after selection', async () => {
 		const { trigger, onModelChange } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );
