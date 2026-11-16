@@ -1,0 +1,65 @@
+# Ollama 0.40.0 probes, 2026-11-16
+# Server: ollama serve with OLLAMA_HOST=127.0.0.1:11555 OLLAMA_MODELS=<temp dir>; models pulled: qwen3:0.6b, gemma3:270m, all-minilm
+
+$ ollama --version
+ollama version is 0.40.0
+
+## Server with no models, GET /v1/models
+{"object":"list","data":null}   (a second server on 127.0.0.1:11558 with an empty models folder)
+
+## GET http://127.0.0.1:11555/v1/models
+{"object":"list","data":[{"id":"all-minilm:latest","object":"model","created":1794825289,"owned_by":"library"},{"id":"gemma3:270m","object":"model","created":1794824976,"owned_by":"library"},{"id":"qwen3:0.6b","object":"model","created":1794824966,"owned_by":"library"}]}
+
+
+## POST /api/show capabilities (Ollama's own API, not the OpenAI one)
+qwen3:0.6b: ['completion', 'tools', 'thinking']
+gemma3:270m: ['completion']
+all-minilm: ['embedding']
+
+## Chat with tools on gemma3:270m (no tool support)
+{"error":{"message":"registry.ollama.ai/library/gemma3:270m does not support tools","type":"invalid_request_error","param":null,"code":null}}
+
+HTTP 400
+
+## Chat on an embedding-only model
+{"error":{"message":"\"all-minilm:latest\" does not support chat","type":"invalid_request_error","param":null,"code":null}}
+
+HTTP 400
+
+## Image sent to a text-only model (qwen3:0.6b)
+{"error":{"message":"{\"error\":{\"code\":400,\"message\":\"Multimodal data provided, but model does not support multimodal requests.\",\"type\":\"invalid_request_error\"}}","type":"invalid_request_error","param":null,"code":null}}
+
+HTTP 400
+
+## Model the server doesn't have
+{"error":{"message":"model 'nope:1b' not found","type":"not_found_error","param":null,"code":null}}
+
+HTTP 404
+
+## Any Authorization header is accepted (Ollama has no key on its local API)
+HTTP 200
+
+## Address without /v1
+GET / -> Ollama is running
+GET /models -> HTTP 404
+
+## Server not running (nothing listens on 11556)
+000 Failed to connect to 127.0.0.1 port 11556 after 0 ms: Couldn't connect to server
+
+## Browser origins (CORS)
+Origin https://app.wordpress.studio, GET /v1/models -> HTTP 403
+Origin http://localhost:8081, GET /v1/models -> HTTP 200
+
+## Default allowed origins and context length, from the server's startup log
+OLLAMA_ORIGINS:[http://localhost https://localhost http://localhost:* https://localhost:* http://127.0.0.1 https://127.0.0.1 http://127.0.0.1:* https://127.0.0.1:* http://0.0.0.0 https://0.0.0.0 http://0.0.0.0:* https://0.0.0.0:* app://* file://* tauri://* vscode-webview://* vscode-file://*]
+msg="vram-based default context" total_vram="37.4 GiB" default_num_ctx=32768
+
+## Chat with tools on qwen3:0.6b (lists the tools capability)
+finish_reason: tool_calls | tool_calls: [{"name": "get_time", "arguments": "{}"}]
+
+## Ollama's log line for its own address (no scheme)
+msg="Listening on 127.0.0.1:11555 (version 0.40.0)"
+
+## A model pulled while the server runs is listed right away
+$ OLLAMA_HOST=127.0.0.1:11555 ollama pull all-minilm   (server running)
+then GET /v1/models lists all-minilm:latest first (see the listing above)
