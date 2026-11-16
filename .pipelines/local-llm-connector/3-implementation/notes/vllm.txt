@@ -1,0 +1,24 @@
+# vLLM 0.11.0 (pip, CPU backend on Apple silicon), Qwen/Qwen3-0.6B, 2026-11-16
+# vllm serve Qwen/Qwen3-0.6B --host 127.0.0.1 --port 8000 --max-model-len 24576 --max-num-batched-tokens 24576 --enable-auto-tool-choice --tool-call-parser hermes
+# (transformers pinned to 4.57.6: transformers 5 fails with "Qwen2Tokenizer has no attribute all_special_tokens_extended")
+
+## GET /v1/models
+{"object":"list","data":[{"id":"Qwen/Qwen3-0.6B","object":"model","owned_by":"vllm","root":"Qwen/Qwen3-0.6B","parent":null,"max_model_len":24576,...}]}
+
+## studio code: /connect local-llm with http://localhost:8000 (also http://localhost:8000/v1) and no key
+ ⏺ Connected Local LLM.
+shared.json providerConfigs: {'local-llm': {'method': 'server', 'baseUrl': 'http://localhost:8000/v1', 'model': 'Qwen/Qwen3-0.6B'}}
+The CLI's status line then reads: Qwen/Qwen3-0.6B · Local LLM
+
+## A turn (studio code --json "Reply with only the word: vllm")
+vLLM log: POST /api/show 404 (the connector asks Ollama's API, which vLLM doesn't have), POST /v1/chat/completions 200 OK
+assistant local-llm/Qwen/Qwen3-0.6B error: The local server at http://localhost:8000 isn’t answering. Start it, then send your message again.
+
+## Why: this machine's vLLM CPU backend is too slow for Studio Code's request
+A streamed request with a ~9,000-token system message, measured with Python's urllib:
+headers after 1.7 s
+first chunk after 815.5 s
+done after 816.6 s
+vLLM logs "Chunked prefill is not supported for ARM and POWER and S390X CPUs; disabling it for V1 backend."
+Node's fetch ends a response body that sends nothing for 300 s, which the connector words as a server that isn't answering.
+A full Studio Code turn on vLLM wasn't observed here; vLLM is meant to run on a GPU.

@@ -1,0 +1,27 @@
+# studio code --json on local models (Ollama 0.40.0, 127.0.0.1:11555), 2026-11-16
+
+## Tools: site local-llm-connector-tools created with 'site create --path <config dir>/sites/local-llm-connector-tools --skip-browser'
+### qwen3-vl:2b (Ollama capabilities: completion, vision, tools, thinking): "Call the wp_cli tool once, on the site named local-llm-connector-tools, with the command: post create --post_type=page --post_title='About us' --post_status=publish. Do not create a site."
+assistant local-llm/qwen3-vl:2b toolUse  []
+tool call: wp_cli {"nameOrPath": "local-llm-connector-tools", "command": "post create --post_type=page --post_title='About us' --post_status=publish"}
+tool result: wp_cli ok {"content": [{"type": "text", "text": "Success: Created post 5.\n"}]}
+assistant local-llm/qwen3-vl:2b stop  ['The post was successfully created with the following details:  \n- **Post Title:** About us  \n- **Post Type:** page  \n- *']
+turn.completed success
+studio wp post list --post_type=page afterwards: 5 About us / 3 Privacy Policy / 2 Sample Page
+
+### qwen3:0.6b, a vaguer prompt ("Create a new WordPress page titled 'About us' ... Use WP-CLI."): the model called a tool, the wrong one
+assistant local-llm/qwen3:0.6b stop  []
+assistant local-llm/qwen3:0.6b toolUse  []
+tool call: site_create {"name": "About us"}
+(that site, ~/Studio/about-us, was deleted right after with 'site delete')
+
+## No internet: the turn ran under sandbox-exec -p '(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip "localhost:*"))(allow network-outbound (remote unix-socket))'
+curl https://public-api.wordpress.com/ in that sandbox: 000 (blocked); curl http://127.0.0.1:11555/v1/models: 200
+assistant local-llm/qwen3-vl:2b stop  ['offline']
+turn.completed success
+
+## A build from before the change (installed Studio 1.25.0-dev18 CLI) on the same config, with aiProvider local-llm and a made-up Anthropic key
+info: WordPress.com is no longer available. Switched to Anthropic · API key.
+assistant anthropic claude-sonnet-5 error: 401 invalid x-api-key (the key was made up: the chat ran on Anthropic)
+shared.json afterwards: aiProvider anthropic-api-key; providerConfigs.local-llm and chosenAiModels unchanged
+GET /api/ai-settings from this build's studio ui afterwards: accounts.local-llm {connected: true, method: server, summary: http://localhost:11555, model: local-llm/qwen3:0.6b}

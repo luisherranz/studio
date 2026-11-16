@@ -1,0 +1,11 @@
+# llama.cpp llama-server 1.0.0 (Homebrew), the qwen3:0.6b GGUF, 2026-11-16
+# llama-server -m <qwen3:0.6b gguf> --alias qwen3-0.6b --api-key <key> --jinja -c 24576 -np 1 --port 8090
+
+GET /v1/models with no key -> {"error":{"message":"Invalid API Key","type":"authentication_error","code":401}}
+GET /v1/models with the key -> data[0]: id qwen3-0.6b, architecture.input_modalities ["text"], meta.n_ctx 24576, meta.n_ctx_train 40960
+
+## studio code: /connect local-llm, 127.0.0.1:8090, then an empty key, a wrong key, the right key, then a turn
+> The local server refused the API key. Check the key, and connect again.   (under the key prompt, for the empty key and again for the wrong key)
+⏺ Connected Local LLM.
+⏺ llama
+shared.json afterwards: {'local-llm': {'method': 'server', 'baseUrl': 'http://127.0.0.1:8090/v1', 'apiKey': '<the key>', 'model': 'qwen3-0.6b'}}

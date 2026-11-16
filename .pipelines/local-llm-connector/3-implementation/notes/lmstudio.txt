@@ -1,0 +1,32 @@
+# LM Studio 0.4.28 via 'lms server start --port 1234', model qwen3-0.6b imported from a local GGUF (2026-11-16)
+
+## GET /api/v1/models before any turn: no loaded instance, so no running context
+qwen3-0.6b llm {'vision': False, 'trained_for_tool_use': True, ...} loaded_instances=[] max_context_length=40960
+
+## studio code: /connect local-llm with http://localhost:1234/v1 and no key, then the first turn
+Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.
+✔ Server address (saved for future use): http://localhost:1234/v1
+✔ API key (optional, saved for future use):
+ ⏺ Connected Local LLM.
+ ⏺ Engine protocol predict request returned: request (11766 tokens) exceeds the available context size (8192 tokens), try increasing it
+
+## LM Studio loaded the model on that request (JIT): /api/v1/models then reports
+qwen3-0.6b loaded_instances=[('qwen3-0.6b', 8192)]
+
+## A second turn, with the model loaded (studio code --json), ends with
+agent_end errorMessage: The context qwen3-0.6b runs with is too small for Studio Code. Raise its context length in your server’s settings.
+
+## After 'lms load qwen3-0.6b --context-length 32768', a turn replies
+assistant: stop ['lmstudio']
+turn.completed success
+
+## Loading through LM Studio's own API before a request ('lms unload --all' first)
+POST /api/v1/models/load {"model":"qwen3-0.6b","echo_load_config":true}
+-> {"type":"llm","instance_id":"qwen3-0.6b","load_time_seconds":0.521,"status":"loaded","load_config":{"context_length":8192, ...}}
+POST /v1/chat/completions {"model":"qwen3-0.6b", ...} -> 200, usage {"prompt_tokens":10,"completion_tokens":5,...}
+GET /api/v1/models -> qwen3-0.6b loaded_instances=[('qwen3-0.6b', 8192)]   (one instance: the request reused it)
+
+## Connecting again to another server in a chat that hasn't run a turn (studio code, after the fix in 7d9186ae8)
+The session started with the connector on vLLM (status line "Qwen/Qwen3-0.6B · Local LLM"), then /connect local-llm with localhost:1234 and no key:
+ ⏺ Connected Local LLM.
+ ⏺ studio            (reply to "Reply with only the word: studio"; the turn's session_context: {"model": "local-llm/qwen3-0.6b"})

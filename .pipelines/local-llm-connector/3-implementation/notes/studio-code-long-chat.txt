@@ -1,0 +1,17 @@
+# studio code, a long chat on Ollama qwen3:0.6b at its 32,768-token default context (127.0.0.1:11555), 2026-11-16
+# Five turns, each a ~9,000-character note asking for a one-line reply.
+
+## Each assistant message's usage, and the compaction, from the session file
+assistant stop: input=12700 cacheRead=0 totalTokens=13868 text='got note 1.'
+assistant stop: input=2162 cacheRead=12693 totalTokens=15100 text='got note 1.   got note 2.   got note 1.   got note 2.   got '
+assistant stop: input=2240 cacheRead=14848 totalTokens=17381 text='got note 1.   got note 2.   got note 3.'
+assistant stop: input=2174 cacheRead=17081 totalTokens=19401 text='got note 4.'
+assistant stop: input=2162 cacheRead=19248 totalTokens=21643 text='got note 1.   got note 2.   got note 3.   got note 4.   got '
+compaction: tokensBefore=21643
+assistant stop: input=15185 cacheRead=3 totalTokens=15361 text='just'
+
+Compaction threshold for this window (runtime getCompactionSettings): 32768 - reserveTokens, reserveTokens = share/2 + 5120, share = 32768 - (system prompt + tools, by pi's estimate) - 5120; it ran once totalTokens passed it (21,643).
+grep -c 'truncating input prompt' Ollama log: 0
+
+## Resuming that chat with studio code sessions resume <id> --json, after chosenAiModels was set to local-llm/gemma3:270m
+session_context of the resumed turn: {"model": "local-llm/qwen3:0.6b"}; turn.completed success

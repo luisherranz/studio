@@ -1,0 +1,26 @@
+# studio ui (this worktree's build) on port 8097, DEV_CONFIG_DIR=<config dir>, Ollama 0.40.0 at 127.0.0.1:11555, 2026-11-16
+
+## Settings → Providers → Local LLM → Connect
+Save disabled with both fields empty; enabled once Server address is http://localhost:11555/v1 with the API key left empty; saving connects.
+The row then reads 'Local LLM · Connected · http://localhost:11555' with Manage; Default AI provider becomes enabled.
+Manage form: API key is a password input with no placeholder; Server address shows its example placeholder http://localhost:11434.
+Screenshots: studio-ui-settings-providers-{light,dark}.png, studio-ui-settings-form-{light,dark}.png
+
+## A chat on qwen3:0.6b: the Model button reads 'qwen3:0.6b' (description 'qwen3:0.6b · Local LLM')
+Model picker options: all-minilm:latest · Local LLM / gemma3:270m · Local LLM / qwen3:0.6b · Local LLM / Connect AI providers
+Screenshots: studio-ui-picker-{light,dark}.png
+Sending 'Reply with only the word: browser' -> reply 'browser'.
+
+## Attaching a PNG on qwen3:0.6b and pressing Enter
+Notice: 'Choose a model that supports images before sending these attachments'; the draft and attachment stay. Screenshots: studio-ui-image-held-{light,dark}.png
+
+## 'ollama pull qwen3-vl:2b' (capabilities: completion, vision, tools, thinking) while connected, then reopening the picker
+Options: qwen3-vl:2b · Local LLM / all-minilm:latest / gemma3:270m / qwen3:0.6b · Local LLM / Connect AI providers
+Picking qwen3-vl:2b, attaching a 64×64 red PNG, 'What color fills this image? Reply with just the color name.' -> reply 'red'; the session's user message holds [text, image, image].
+Picking qwen3:0.6b again and sending 'Reply with only the word: text' in the same chat, which holds those images -> reply 'text'.
+
+## Studio on the web (npm -w @studio/ui run dev:static, port 3456)
+Settings → Providers → AI providers: WordPress.com, OpenAI, Anthropic, Google Gemini; no Local LLM row. Settings search 'Local LLM' finds no setting.
+
+## Light and dark (prefers-color-scheme emulated)
+Checked in each scheme: the Local LLM row (server-rack logo tile, "Connected" badge, the address as the row's text, Manage button), the open connect form (instructions, Server address with its placeholder, the API key password field, Save and Disconnect), the model picker's list (each model with the provider's icon and "Local LLM"), and the image notice above the composer. All legible in both, with no hard-coded colours outside the provider's own logo tile, which keeps its dark background in both schemes like the other providers' tiles.

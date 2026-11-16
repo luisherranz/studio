@@ -1,0 +1,45 @@
+# studio code with Ollama 0.40.0 (OLLAMA_HOST=127.0.0.1:11555, temp models folder; qwen3:0.6b, gemma3:270m, all-minilm pulled), 2026-11-16
+# Config: DEV_CONFIG_DIR=<config dir>, shared.json {"aiProvider":"wpcom"} with WordPress.com not signed in
+
+## /connect local-llm, 127.0.0.1:11555, empty key, while the Ollama server was down
+No local server answered at 127.0.0.1:11555. Check the address, and that your server is running.
+
+## The same with the server running
+✔  API key (optional, saved for future use):
+ WordPress.com isn’t connected. Use /connect wpcom to connect it.
+ ⏺ Connected Local LLM.
+shared.json afterwards: {"providerConfigs":{"local-llm":{"method":"server","baseUrl":"http://127.0.0.1:11555/v1","model":"qwen3:0.6b"}},"aiProvider":"local-llm"}
+
+## /model: the server's models by name; picking gemma3:270m
+ Select a model
+ → 1. all-minilm:latest
+      all-minilm:latest
+   2. gemma3:270m
+      gemma3:270m
+   3. qwen3:0.6b (current)
+      qwen3:0.6b                                                                                                           1. all-minilm:latest
+      all-minilm:latest
+ → 2. gemma3:270m                                                                                                        → gemma3:270m
+ Switched to gemma3:270m
+shared.json chosenAiModels: {'local-llm': 'local-llm/gemma3:270m'}
+
+## A new studio code session starts on the remembered gemma3:270m, which refuses tools
+ ⏺ Your local server can’t run gemma3:270m: registry.ollama.ai/library/gemma3:270m does not support tools. Pick another model.
+
+## /model qwen3:0.6b in a new session, then a turn (no WordPress.com sign-in, no AI credits)
+ ⏺ hello
+Ollama log for the turn: POST /api/show, GET /api/ps, POST /api/generate (load, 1.04s), GET /api/ps, POST /v1/chat/completions 200 (2.87s); /api/ps context_length 32768; no 'truncating input prompt'
+
+## /connect local-llm http://localhost:11570/v1/ (Ollama with OLLAMA_CONTEXT_LENGTH=4096), then a turn
+ ⏺ Connected Local LLM.
+ ⏺ The context qwen3:0.6b runs with is too small for Studio Code. Raise its context length in your server’s settings.
+Ollama 11570 log: /v1/models, /api/show x4, /api/ps, /api/generate, /api/ps — no /v1/chat/completions; no 'truncating input prompt'. chosenAiModels cleared by the new connection.
+
+## /connect local-llm http://127.0.0.1:11571 (Ollama at 24576), server stopped, then a turn, /model, /disconnect local-llm, /model
+ ⏺ Connected Local LLM.
+ ⏺ The local server at http://127.0.0.1:11571 isn’t answering. Start it, then send your message again.
+ Disconnected Local LLM.
+ ⏺ Connect Local LLM with the address of your model server.
+ ⏺ Connect Local LLM with the address of your model server. Use /connect local-llm to connect it.
+ Use /connect local-llm to connect Local LLM again.
+shared.json afterwards: providerConfigs none, aiProvider wpcom, chosenAiModels none
