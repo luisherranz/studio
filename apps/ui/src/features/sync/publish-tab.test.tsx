@@ -119,17 +119,21 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		url: 'https://second.space.fast/',
 	};
 	const { connector, site } = setup( {
-		getRemoteSites: async ( provider, localSiteId ) =>
-			provider === 'wpcom'
-				? [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ]
-				: [
+		getRemoteSites: async ( provider, localSiteId ) => {
+			if ( provider === 'wpcom' ) {
+				return [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ];
+			}
+			return provider === 'spacefast'
+				? [
 						{
 							...space,
 							localSiteId: localSiteId ?? '',
 							lastPushTimestamp: null,
 							lastPullTimestamp: null,
 						},
-				  ],
+				  ]
+				: [];
+		},
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
 		createRemoteSite: async () => second,
 	} );
