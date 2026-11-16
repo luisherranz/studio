@@ -1,5 +1,9 @@
 import { getProvider } from '@studio/providers';
-import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
+import {
+	forgetRejectedConfig,
+	readFreshProviderConfig,
+	readProviderConfig,
+} from '@studio/common/lib/provider-config';
 import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import type {
@@ -24,13 +28,13 @@ function sites< Id extends SitesProviderId >( provider: SitesProvider< Id > ) {
 	return provider.sites;
 }
 
-// The sites the account can connect a local site to.
+// The sites the account can connect a local site to, with its credential renewed first.
 export async function listAccountSites< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >
 ): Promise< ProviderSites[ Id ][] > {
 	const id = provider.id as Id;
 	return forgetRejectedConfig( id, async () =>
-		sites( provider ).list( await readProviderConfig( id ), {
+		sites( provider ).list( await readFreshProviderConfig( provider ), {
 			planRequired: ! isReprintPullEnabled(),
 		} )
 	);
@@ -48,7 +52,7 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 		throw new Error( `Studio can't create ${ getProvider( provider.id ).label } sites.` );
 	}
 	const site = await forgetRejectedConfig( id, async () =>
-		create( await readProviderConfig( id ), { name } )
+		create( await readFreshProviderConfig( provider ), { name } )
 	);
 	await rememberRemoteSite( id, localSiteId, site );
 	return site;
