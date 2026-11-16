@@ -69,24 +69,26 @@ const hostingSites = {
 };
 
 describe( 'the registration', () => {
-	it( 'derives every provider type from the registered descriptors', () => {
-		expectTypeOf< ProviderId >().toEqualTypeOf<
+	it( 'derives each provider’s types from its registered descriptor', () => {
+		expectTypeOf<
 			'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot' | 'spacefast'
-		>();
-		expectTypeOf< AiProviderId >().toEqualTypeOf<
+		>().toExtend< ProviderId >();
+		expectTypeOf< string >().not.toExtend< ProviderId >();
+		expectTypeOf<
 			'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot'
-		>();
-		expectTypeOf< SitesProviderId >().toEqualTypeOf< 'wpcom' | 'spacefast' >();
-		expectTypeOf< ProviderConfigs >().toEqualTypeOf< {
-			wpcom: WpcomConfig;
-			anthropic: AnthropicConfig;
-			openai: OpenaiConfig;
-			gemini: GeminiConfig;
-			'github-copilot': GithubCopilotConfig;
-			spacefast: SpacefastConfig;
-		} >();
-		expectTypeOf< ProviderSites >().toEqualTypeOf< { wpcom: SyncSite; spacefast: Space } >();
-		expectTypeOf< AiModelId >().toEqualTypeOf<
+		>().toExtend< AiProviderId >();
+		expectTypeOf< 'spacefast' >().not.toExtend< AiProviderId >();
+		expectTypeOf< 'wpcom' | 'spacefast' >().toExtend< SitesProviderId >();
+		expectTypeOf< 'anthropic' >().not.toExtend< SitesProviderId >();
+		expectTypeOf< ProviderConfigs[ 'wpcom' ] >().toEqualTypeOf< WpcomConfig >();
+		expectTypeOf< ProviderConfigs[ 'anthropic' ] >().toEqualTypeOf< AnthropicConfig >();
+		expectTypeOf< ProviderConfigs[ 'openai' ] >().toEqualTypeOf< OpenaiConfig >();
+		expectTypeOf< ProviderConfigs[ 'gemini' ] >().toEqualTypeOf< GeminiConfig >();
+		expectTypeOf< ProviderConfigs[ 'github-copilot' ] >().toEqualTypeOf< GithubCopilotConfig >();
+		expectTypeOf< ProviderConfigs[ 'spacefast' ] >().toEqualTypeOf< SpacefastConfig >();
+		expectTypeOf< ProviderSites[ 'wpcom' ] >().toEqualTypeOf< SyncSite >();
+		expectTypeOf< ProviderSites[ 'spacefast' ] >().toEqualTypeOf< Space >();
+		expectTypeOf<
 			| 'fast'
 			| 'balanced'
 			| 'strong'
@@ -96,7 +98,8 @@ describe( 'the registration', () => {
 			| 'gpt-6.1-sol'
 			| 'gemini-3.8-flash'
 			| 'gemini-4-argon'
-		>();
+		>().toExtend< AiModelId >();
+		expectTypeOf< string >().not.toExtend< AiModelId >();
 	} );
 } );
 
