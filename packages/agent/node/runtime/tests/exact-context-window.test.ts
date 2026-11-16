@@ -106,7 +106,12 @@ describe( 'a connection whose context window is exact', () => {
 		} );
 		void interruptWhen?.then( () => turn.interrupt() );
 		await turn.result;
-		return events.filter( ( event ) => event.type === 'agent_end' && ! event.willRetry ).at( -1 )!;
+		return events
+			.filter(
+				( event ): event is Extract< AgentSessionEvent, { type: 'agent_end' } > =>
+					event.type === 'agent_end' && ! event.willRetry
+			)
+			.at( -1 )!;
 	}
 
 	beforeEach( () => {
