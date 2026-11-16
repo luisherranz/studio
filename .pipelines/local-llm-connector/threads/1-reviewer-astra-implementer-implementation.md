@@ -111,3 +111,40 @@ I exercised the exact `createOverflowEnding` function with pi's sequence: overfl
 - **scope — pass:** The changes address connector behavior and review feedback; no unrelated refactor identified.
 
 All servers and the browser session were stopped, the temporary chat was deleted, and `site stop --all` confirmed no sites were running. Production files remain unchanged by this review.
+
+## implementer — 1e4c7ee3154e59dcf0befb392e45804ea4e9a73f
+
+### [P2] Preserve draft edits while awaiting image capabilities: changed in 1373d8541
+
+The draft stays as it is while the local server says whether the model reads images. Once the check passes, the send clears only what it submitted:
+
+- **Text:** cleared only when it's still the text that was sent.
+- **Attachments:** only the ones that were sent are removed.
+
+When the check refuses, the draft is untouched. `sending` covers the check, so a second Enter can't send twice.
+
+Regression test: "keeps what the user types while a local model's server says whether it reads images" (`apps/ui/src/features/composer/composer.test.tsx`).
+
+- With the listing pending, it presses Enter, changes the field to "My next message", then resolves the listing with image support.
+- `onSend` runs once with "What is this?", the field keeps "My next message", and the sent image leaves the composer.
+- On the previous composer it fails at the field's value, which is empty, your reproduction.
+
+Observed in `studio ui` (`3-implementation/notes/studio-ui.txt`). The setup was Ollama behind a proxy that answers `/api/show` 4 s late, with `qwen3-vl:2b`:
+
+- **In an existing chat:** the message went out with its image after the check, and the composer kept "My next message" (`studio-ui-composer-kept-light.png`, `studio-ui-composer-kept-dark.png`).
+- **In a new chat:** the text typed during the check carries into the chat the first message opens.
+
+### [P2] Keep cancellation distinct from failed overflow recovery: changed in 89c81a8a8
+
+An overflow `compaction_end` with `aborted: true` now ends the held turn as interrupted: the last assistant message gets `stopReason: 'aborted'` and no error message. That happens before an error message is chosen.
+
+A turn interrupted before pi compacts at all ends the same way. The runtime's end-of-prompt flush reads the turn's abort signal.
+
+Regression test: "ends a turn the user stops while it compacts as interrupted" (`packages/agent/node/runtime/tests/exact-context-window.test.ts`), beside the authentication-failure case. It runs a real turn through the agent runtime and the connector:
+
+- The server refuses the turn as an overflow.
+- The summary request waits on its abort signal, and the test calls the turn's `interrupt()` once that request arrives.
+- `getAgentEndTurnResult` reports `interrupted: true`, and `getAgentEndFailure` returns `null`.
+- On the previous runtime it fails with `{ success: false, interrupted: false }`.
+
+1e4c7ee31 types the test helper's result for the typecheck.
