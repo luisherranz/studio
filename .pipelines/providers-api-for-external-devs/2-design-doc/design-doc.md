@@ -84,9 +84,9 @@ The derived exports keep their names, their values for the six providers, and th
 design-doc-decision-2: Each folder's services are found by the folder's layout
 
 **Serves:** spec-requirement-1, spec-requirement-2, spec-requirement-3, spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-3
-**Decision:** The services entry (`@studio/providers/services`) collects the services that every provider folder's `services.ts` exports. Vite's glob import finds them at build time. `getProviderServices( id )` keeps its signature and stays synchronous. It returns the services whose `id` is `id`. For a registered provider without services, it throws an error that names the provider and the module it expects. The surface entry (`@studio/providers`) never reaches services code, so `apps/ui` bundles only descriptors, as today. The package's own tests check that every registered provider resolves through the services entry to services with its id, and that provider ids are unique. The hand-written services map is removed.
+**Decision:** The services entry (`@studio/providers/services`) collects the services that every provider folder's `services.ts` exports. Vite's glob import finds them at build time. `getProviderServices( id )` keeps its signature and stays synchronous. It returns the services whose `id` is `id`. For a registered provider without services, it throws an error that names the provider and the module it expects, and lists the folders whose `services.ts` exports none. A folder whose `services.ts` exports no services never affects another provider's lookup. The surface entry (`@studio/providers`) never reaches services code, so `apps/ui` bundles only descriptors, as today. The package's own tests check that every registered provider resolves through the services entry to services with its id, and that provider ids are unique. The hand-written services map is removed.
 **Alternatives:**
-- A second, typed list in `services.ts`. Rejected: that is a second registration, which spec-requirement-1 rules out.
+- A second list in `services.ts`, one import and one entry per provider, typed as a map over `ProviderId`, with no provider lint rule. Typecheck would then report a registered provider without services, services exported under another name, and services under an unregistered id. Rejected: every provider would change two files outside its folder, `registry.ts` and `services.ts`, and spec-requirement-1 allows one registration and no other file. It would also leave a folder that neither list names, as a developer has it before the registration step, passing typecheck and lint. That provider would appear in no surface, against spec-requirement-3. Only knip would report its files, as unused, without naming the registration.
 - A registration that imports both halves. Rejected: the surface entry would import services code. `apps/ui` would then bundle the services, or rely on tree-shaking to drop them, and the surface boundary in `eslint.config.mjs:433-457` would have to go.
 - A lazy `import()` of each services module from the registration. Rejected: `getProviderServices` would become asynchronous for every caller, `apps/ui` would bundle the services as chunks, and the lint boundary reports dynamic imports too.
 - Generating the services map, or both maps, from a manifest with a script. Rejected: it adds a build step and a generated file that changes with every provider, and Vite already offers build-time discovery.
@@ -96,12 +96,14 @@ design-doc-decision-2: Each folder's services are found by the folder's layout
 - Studio on the web through Vite;
 - tests through Vitest.
 
-A consumer that loads the entry without Vite would find no services. A missing services module is no longer a typecheck error, as it is with today's exhaustive map; design-doc-decision-4's lint rule reports it instead.
+A consumer that loads the entry without Vite would find no services. A provider is listed explicitly in the registration, but its services are found by convention. A missing services module, or services exported under another name, is no longer a typecheck error, as it is with today's exhaustive map. design-doc-decision-4's lint rule reports both instead, and the repository maintains that rule.
 **Claims:**
 - observed: `@studio/agent` already discovers files this way, in code the CLI and Studio on the web run (read `packages/agent/shared/skills.ts:1-18`, with `/// <reference types="vite/client" />`).
 - observed: knip enables its Vite plugin for `packages/providers`, and treats non-raw `import.meta.glob` targets as entries without analyzing their exports (`npx knip --workspace packages/providers --debug` and knip's source, in `.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/knip-vite-glob.txt`).
 - observed: every importer of `@studio/providers/services` is in `apps/cli`, `apps/local`, `apps/studio`, `apps/static` or tests (`git grep -n "providers/services"`).
-- observed: today `SERVICES` is typed over every `ProviderId`, so a registered provider without services fails typecheck (read `packages/providers/services.ts:9-18`).
+- observed: before the change, `SERVICES` was typed over every `ProviderId`, so a registered provider without services failed typecheck (`git show 3b21261b5:packages/providers/services.ts`, lines 9-18).
+- observed: with a folder's services exported under another name, `tsc -p packages/providers` passes and the provider lint rule reports it in that `services.ts` (`.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/services-list-question.txt`, case 1).
+- observed: knip reports a provider file that no module imports as an unused file, without naming the registration (`.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/services-list-question.txt`, case 2).
 - assumed: electron-vite's main build resolves the glob; see design-doc-assumption-1.
 - assumed: every TypeScript program that reaches the services entry accepts `vite/client` types; see design-doc-assumption-3.
 
@@ -147,6 +149,7 @@ design-doc-decision-4: ESLint reports a provider folder that is unregistered, or
 Together with the services helper's type check, this means a registered provider that passes typecheck and lint has services that the services entry finds and that hold every part its descriptor declares. Each report lands in a file that a contribution changes, so ESLint on the changed files shows it. Adding a provider never changes the rule or its configuration.
 **Alternatives:**
 - Leaving a missing services module to the package tests and to the first connect or chat. Rejected: spec-requirement-3 and spec-acceptance-criterion-9 ask typecheck or lint to report it. A registered provider without services lists its models with no model connection and would pass both.
+- A typed services list that typecheck checks against the registration, in place of this rule. Rejected with design-doc-decision-2's second list: it is a second registration, and it leaves a folder that neither list names unreported by typecheck and lint.
 - A type-only reference to each folder's services from the registration, so a missing module fails typecheck. Rejected: the surface boundary reports type-only imports, and a `typeof import()` type query escapes it only because the rule doesn't visit type queries. That works against spec-requirement-7's boundary, and every registration entry would have to name both halves.
 **Trade-offs:** The rule is infrastructure the repository maintains. Its result for one file depends on other files, the folder layout and the registration. That works because nothing lints with a cache, and a contribution's changed files include the file each report lands in.
 **Claims:**
@@ -314,7 +317,7 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 
 **Models (`models.ts`)**: `AiModelId` is every registered model id. `findAiModel( id )` returns the first provider in registration order that lists the id. `getAiModels( provider, account? )` and `getDefaultAiModel( provider, options? )` keep their behavior.
 
-**The services entry (`@studio/providers/services`)**: `getProviderServices( id )` returns `ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >`, synchronously. For a registered provider without services, it throws an error naming the provider. `createTusUpload` stays.
+**The services entry (`@studio/providers/services`)**: `getProviderServices( id )` returns `ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >`, synchronously. For a registered provider without services, it throws an error naming the provider and the folders whose `services.ts` exports none. Such a folder never affects another provider's lookup. `createTusUpload` stays.
 
 **The provider lint rule (`eslint-plugin-studio`)**: for `@studio/providers`, it reports:
 - an unregistered provider folder, in its descriptor;
@@ -362,7 +365,7 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 
 - **A provider folder that isn't registered:** an ESLint error in its descriptor.
 - **A registered provider whose folder has no `services.ts`:** an ESLint error at its registration entry, naming the expected module. If lint is skipped, the package tests fail, and at run time `getProviderServices` throws naming the provider and the module. A surface shows that error when the user connects or chats, the way hosts show any thrown error today.
-- **Services not declared through the services helper:** an ESLint error in the folder's `services.ts`.
+- **Services not declared through the services helper:** an ESLint error in the folder's `services.ts`. If lint is skipped and the services aren't exported where the services entry reads them, that provider's lookup throws, naming the folder. Every other provider's lookup still works.
 - **Services missing a part their descriptor declares, or declaring one it doesn't:** a typecheck error in the folder's `services.ts`, naming the part.
 - **A `redirect` connect method outside WordPress.com:** a typecheck error in the provider's descriptor.
 - **A connection naming an API Studio doesn't run:** a typecheck error in the folder, naming the API. If it is cast past the types, the chat's turn ends with an error naming the API, and nothing is sent.
@@ -413,6 +416,7 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 - end-to-end flow — design-doc-decision-5, spec-acceptance-criterion-16 — the new build reads a `shared.json`, session entries and Studio on the web settings written by the base build. Settings, `studio code` and the publish panel show the same accounts, defaults, connections and pins. The base build then reads back what the new build stored, the same way.
 - inspection — design-doc-decision-10, spec-acceptance-criterion-12 — every value of the contract states its meaning, whether a new provider supplies it or acts on it, and what Studio does with it, and each WordPress.com-only part says so.
 - inspection — design-doc-decision-11, spec-acceptance-criterion-11 — the README covers each point the criterion lists, in agreement with the contract.
+- inspection of the services entry — design-doc-decision-2 — a folder whose `services.ts` exports no services is skipped and named in the error, and never breaks another provider's lookup.
 - inspection of the Desktop main bundle — design-doc-decision-2 — it includes every provider folder's services (design-doc-assumption-1).
 
 ## Risks

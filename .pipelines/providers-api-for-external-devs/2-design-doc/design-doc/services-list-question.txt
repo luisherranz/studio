@@ -1,0 +1,17 @@
+# Observations for the services-discovery question (design-doc-decision-2, design-doc-decision-4), at 59540fb3d
+
+## 1. anthropic/services.ts exporting its services as `anthropicServices` instead of `services` (restored afterwards)
+$ npx tsc -p packages/providers --noEmit
+exit: 0
+$ npx eslint packages/providers/anthropic/services.ts
+
+packages/providers/anthropic/services.ts
+  6:1  error  Export the provider’s services as `export const services = defineServices( descriptor, { … } )`: the services entry reads that export  studio/provider-registration
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+## 2. A provider file no module imports and the services glob doesn't match (throwaway packages/providers/zzprobe/descriptor.ts, removed afterwards)
+$ npx knip --workspace packages/providers
+Unused files (1)
+packages/providers/zzprobe/descriptor.ts
