@@ -7,6 +7,7 @@ import {
 	type CredentialInfo,
 	type CredentialStore,
 } from '@earendil-works/pi-ai';
+import { estimateTextTokens } from '@earendil-works/pi-ai/utils/estimate';
 import {
 	createAgentSession,
 	createBashTool,
@@ -60,20 +61,30 @@ const STUDIO_COMPACTION_SETTINGS = {
 	keepRecentTokens: 20_000,
 };
 
+// What pi leaves out of the window for the reply: its safety margin and the smallest reply.
+const REPLY_TOKENS = 4096 + 1024;
+
 /**
- * The compaction settings for the connection. A window that is exact and smaller than the
- * settings plan for gets them scaled to it, so a conversation compacts before a request outgrows
- * it.
+ * The compaction settings for the connection, given the tokens its system prompt and tools take.
+ * On a window that is exact, the conversation's share of what a request holds sets them where
+ * today's sizes don't fit: compaction starts once the conversation fills half its share, and keeps
+ * a quarter of it, so a request after compacting still fits.
  */
-function getCompactionSettings( { exactContextWindow, model }: AiConnection ) {
+function getCompactionSettings( { exactContextWindow, model }: AiConnection, baseTokens: number ) {
 	if ( ! exactContextWindow ) {
 		return STUDIO_COMPACTION_SETTINGS;
 	}
-	const quarter = Math.floor( model.contextWindow / 4 );
+	const share = Math.max( 0, model.contextWindow - baseTokens - REPLY_TOKENS );
 	return {
 		enabled: true,
-		reserveTokens: Math.min( STUDIO_COMPACTION_SETTINGS.reserveTokens, quarter ),
-		keepRecentTokens: Math.min( STUDIO_COMPACTION_SETTINGS.keepRecentTokens, quarter ),
+		reserveTokens: Math.min(
+			STUDIO_COMPACTION_SETTINGS.reserveTokens,
+			Math.floor( share / 2 ) + REPLY_TOKENS
+		),
+		keepRecentTokens: Math.min(
+			STUDIO_COMPACTION_SETTINGS.keepRecentTokens,
+			Math.max( 1, Math.floor( share / 4 ) )
+		),
 	};
 }
 
@@ -290,7 +301,19 @@ async function createStudioAgentSession(
 		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( config.ai );
-	const settingsManager = createSettingsManager( config.ai );
+	const settingsManager = createSettingsManager(
+		config.ai,
+		estimateTextTokens(
+			systemPrompt +
+				JSON.stringify(
+					toolDefinitions.map( ( { name, description, parameters } ) => ( {
+						name,
+						description,
+						parameters,
+					} ) )
+				)
+		)
+	);
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -405,11 +428,11 @@ function createProviderConfig( ai: AiConnection ): ProviderConfigInput {
 	};
 }
 
-function createSettingsManager( ai: AiConnection ): SettingsManager {
+function createSettingsManager( ai: AiConnection, baseTokens: number ): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
-			compaction: getCompactionSettings( ai ),
+			compaction: getCompactionSettings( ai, baseTokens ),
 		},
 		{ projectTrusted: false }
 	);
