@@ -220,7 +220,7 @@ Open **Settings → Providers** and connect the account you want to use for chat
 -   **Anthropic** uses a Claude subscription token or an [Anthropic API key](https://platform.claude.com/docs/en/get-api-key). Choose a method from **Connect** and follow the setup instructions.
 -   **Google Gemini** uses an API key from [Google AI Studio](https://aistudio.google.com/apikey). Google bills usage to the key’s project.
 -   **GitHub Copilot** uses your [GitHub Copilot plan](https://github.com/features/copilot/plans). Click **Connect** and approve the sign-in code in your browser.
--   **Local LLM** uses the models a server you run serves, such as [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), llama.cpp’s `llama-server` or [vLLM](https://docs.vllm.ai). Start the server with at least one model, click **Connect**, and enter the address it listens on, such as `http://localhost:11434`. Add an API key only if your server asks for one. In the terminal, type `/connect local-llm`.
+-   **Local LLM** uses the models a server you run serves, such as [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), llama.cpp’s `llama-server` or [vLLM](https://docs.vllm.ai). Start the server with at least one model, click **Connect**, and enter the address it listens on, such as `http://localhost:11434`. Add an API key only if your server asks for one. In the terminal, type `/connect local-llm`. Studio connects to one server at a time: to switch, connect again with the other server’s address.
 
 Use **Default AI provider** to choose which connected account new chats use. The model menu lets you choose a provider for a particular chat. In the terminal, switch providers with the `/provider` command.
 
