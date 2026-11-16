@@ -311,7 +311,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	} );
 	const readsImages =
 		modelProvider && getProvider( modelProvider ).ai?.userServer
-			? listedModels[ modelProvider ]?.some(
+			? listedModels[ modelProvider ]?.models?.some(
 					( listed ) => listed.id === model && listed.supportsImages
 			  ) === true
 			: findAiModel( model )?.model.supportsImages !== false;

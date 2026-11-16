@@ -21,10 +21,18 @@ export function useAiSettings() {
 
 const LISTED_MODELS_QUERY_KEY = [ 'listed-models' ] as const;
 
+/** What the server of a provider whose models a server the user runs lists says it serves. */
+export interface ListedModels {
+	// The models it lists, once it answered.
+	models?: ListedAiModel[];
+	// Why it couldn't be read, in words for the user, in place of the models it listed before.
+	error?: string;
+}
+
 /**
  * The models the servers of `providers` list, for each provider whose models a server the user
  * runs lists: read from the server whenever the query is enabled, and never kept between runs. A
- * server that doesn't answer lists none.
+ * server that doesn't answer lists none, and says why.
  */
 export function useListedModels( providers: readonly ProviderId[], { enabled = true } = {} ) {
 	const connector = useConnector();
@@ -41,8 +49,11 @@ export function useListedModels( providers: readonly ProviderId[], { enabled = t
 		} ) ),
 		combine: ( results ) =>
 			Object.fromEntries(
-				listed.map( ( provider, index ) => [ provider, results[ index ].data ] )
-			) as Partial< Record< ProviderId, ListedAiModel[] > >,
+				listed.map( ( provider, index ): [ ProviderId, ListedModels ] => {
+					const { data, error } = results[ index ];
+					return [ provider, error ? { error: error.message } : { models: data } ];
+				} )
+			) as Partial< Record< ProviderId, ListedModels > >,
 	} );
 }
 

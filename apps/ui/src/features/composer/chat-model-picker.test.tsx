@@ -158,6 +158,37 @@ describe( 'Chat model picker', () => {
 		expect( screen.queryByRole( 'option', { name: /^gemma3:270m/ } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'says why a local server’s models are missing once it stops answering', async () => {
+		let answering = true;
+		const connector = createFakeConnector(
+			{},
+			{
+				getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
+				listProviderModels: async () => {
+					if ( ! answering ) {
+						throw new Error(
+							'The local server at http://localhost:11434 isn’t answering. Start it, then send your message again.'
+						);
+					}
+					return [ { id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false } ];
+				},
+			}
+		);
+		const { trigger } = await renderPicker( 'local-llm/qwen3:0.6b', connector );
+		fireEvent.click( trigger );
+		expect( await screen.findByRole( 'option', { name: /^qwen3:0\.6b/ } ) ).toBeInTheDocument();
+		fireEvent.keyDown( screen.getByRole( 'listbox' ), { key: 'Escape' } );
+		await waitFor( () => expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument() );
+
+		answering = false;
+		fireEvent.click( trigger );
+
+		const reason = await screen.findByRole( 'option', { name: /isn’t answering/ } );
+		expect( reason ).toHaveTextContent( 'Local LLM' );
+		expect( reason ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.queryByRole( 'option', { name: /^qwen3:0\.6b/ } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'lists the tiers and closes after selection', async () => {
 		const { trigger, onModelChange } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );

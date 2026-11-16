@@ -90,7 +90,7 @@ export function ModelPicker( {
 	// A provider whose plan decides which models it runs offers only those.
 	const modelsOf = ( provider: ProviderId ): readonly { id: AiModelId }[] => {
 		if ( getProvider( provider ).ai?.userServer ) {
-			return listedModels[ provider ] ?? [];
+			return listedModels[ provider ]?.models ?? [];
 		}
 		const account = aiSettings?.accounts[ provider ];
 		return getAiModels( provider, account?.connected ? account : undefined );
@@ -115,9 +115,21 @@ export function ModelPicker( {
 	const groups: CommandGroup[] = [
 		{
 			label: __( 'Models' ),
-			items: providers.flatMap( ( provider ) =>
-				modelsOf( provider ).map( ( { id } ): Command => {
-					const { label } = getProvider( provider );
+			items: providers.flatMap( ( provider ): Command[] => {
+				const { label } = getProvider( provider );
+				const listingError = listedModels[ provider ]?.error;
+				if ( listingError ) {
+					return [
+						{
+							value: `listing-error:${ provider }`,
+							label,
+							description: listingError,
+							icon: PROVIDER_ICONS[ provider ],
+							disabled: true,
+						},
+					];
+				}
+				return modelsOf( provider ).map( ( { id } ): Command => {
 					const strengths = getModelDescription( id );
 					const description = strengths
 						? sprintf(
@@ -136,8 +148,8 @@ export function ModelPicker( {
 						icon: PROVIDER_ICONS[ provider ],
 						disabled: isModelLocked( id ),
 					};
-				} )
-			),
+				} );
+			} ),
 		},
 		{
 			label: __( 'Actions' ),
