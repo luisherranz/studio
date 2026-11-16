@@ -32,7 +32,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —           |
 | Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —           |
 | GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —           |
-| Local LLM (`local-llm`)                      | A server's address, and a key when it asks for one | The models the server lists | — | — |
+| Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 
