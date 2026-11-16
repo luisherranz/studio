@@ -1,0 +1,206 @@
+Revision: 924fe372f29bc036cc2cc74b4458a5127872cfe3
+Command: node --input-type=module; Vite SSR loader with wpcom and wpcom-xhr-request bundled (their extensionless ESM imports are not directly loadable in Node)
+{
+  "exports": [
+    "AI_PROVIDER_IDS",
+    "ConnectError",
+    "DEFAULT_PROVIDER_ID",
+    "NotConnectedError",
+    "PROVIDER_IDS",
+    "RemoteSiteError",
+    "SITES_PROVIDER_IDS",
+    "findAiModel",
+    "formatRemoteSite",
+    "getAiModels",
+    "getConnectFields",
+    "getConnectMethod",
+    "getDefaultAiModel",
+    "getProvider",
+    "getProviderSites",
+    "normalizeProviderId",
+    "parseRemoteSite",
+    "toStoredProviderId"
+  ],
+  "providers": [
+    {
+      "id": "wpcom",
+      "label": "WordPress.com",
+      "methods": [
+        {
+          "id": "sign-in",
+          "kind": "redirect",
+          "fields": []
+        }
+      ],
+      "ai": true,
+      "sites": true,
+      "modelCount": 3,
+      "hasConnect": true,
+      "serviceAi": true,
+      "serviceSites": true
+    },
+    {
+      "id": "anthropic",
+      "label": "Anthropic",
+      "methods": [
+        {
+          "id": "api-key",
+          "kind": "form",
+          "fields": [
+            {
+              "name": "apiKey",
+              "title": "Anthropic API key",
+              "secret": true
+            }
+          ]
+        },
+        {
+          "id": "setup-token",
+          "kind": "form",
+          "fields": [
+            {
+              "name": "token",
+              "title": "Claude subscription token",
+              "secret": true
+            }
+          ]
+        }
+      ],
+      "ai": true,
+      "sites": false,
+      "modelCount": 2,
+      "hasConnect": true,
+      "serviceAi": true,
+      "serviceSites": false
+    },
+    {
+      "id": "openai",
+      "label": "OpenAI",
+      "methods": [
+        {
+          "id": "chatgpt",
+          "kind": "loopback",
+          "fields": []
+        },
+        {
+          "id": "api-key",
+          "kind": "form",
+          "fields": [
+            {
+              "name": "apiKey",
+              "title": "OpenAI API key",
+              "secret": true
+            }
+          ]
+        }
+      ],
+      "ai": true,
+      "sites": false,
+      "modelCount": 2,
+      "hasConnect": true,
+      "serviceAi": true,
+      "serviceSites": false
+    },
+    {
+      "id": "gemini",
+      "label": "Google Gemini",
+      "methods": [
+        {
+          "id": "api-key",
+          "kind": "form",
+          "fields": [
+            {
+              "name": "apiKey",
+              "title": "Gemini API key",
+              "secret": true
+            }
+          ]
+        }
+      ],
+      "ai": true,
+      "sites": false,
+      "modelCount": 2,
+      "hasConnect": true,
+      "serviceAi": true,
+      "serviceSites": false
+    },
+    {
+      "id": "github-copilot",
+      "label": "GitHub Copilot",
+      "methods": [
+        {
+          "id": "github",
+          "kind": "device",
+          "fields": []
+        }
+      ],
+      "ai": true,
+      "sites": false,
+      "modelCount": 3,
+      "hasConnect": true,
+      "serviceAi": true,
+      "serviceSites": false
+    },
+    {
+      "id": "spacefast",
+      "label": "Spacefast",
+      "methods": [
+        {
+          "id": "sign-in",
+          "kind": "device",
+          "fields": []
+        }
+      ],
+      "ai": false,
+      "sites": true,
+      "modelCount": 0,
+      "hasConnect": true,
+      "serviceAi": false,
+      "serviceSites": true
+    }
+  ],
+  "invalidConnect": [
+    {
+      "id": "anthropic",
+      "name": "ConnectError",
+      "message": "API key is required"
+    },
+    {
+      "id": "gemini",
+      "name": "ConnectError",
+      "message": "API key is required"
+    },
+    {
+      "id": "openai",
+      "name": "ConnectError",
+      "message": "API key is required"
+    }
+  ],
+  "legacyAnthropicRead": "anthropic",
+  "legacyAnthropicWrite": "anthropic-api-key",
+  "remoteSiteInputs": [
+    {
+      "input": "spacefast:space-1",
+      "result": {
+        "provider": "spacefast",
+        "identifier": "space-1"
+      }
+    },
+    {
+      "input": "123",
+      "result": {
+        "provider": "wpcom",
+        "identifier": "123"
+      }
+    },
+    {
+      "input": "https://example.wordpress.com",
+      "result": {
+        "provider": "wpcom",
+        "identifier": "https://example.wordpress.com"
+      }
+    }
+  ],
+  "unregisteredProviderLookup": null,
+  "unregisteredModelLookup": null
+}

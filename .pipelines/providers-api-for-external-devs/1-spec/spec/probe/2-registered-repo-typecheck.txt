@@ -1,0 +1,11 @@
+=== packages/common
+lib/provider-config.ts(73,7): error TS2741: Property 'example' is missing in type '{ wpcom: { read: () => Promise<{ token: string; expiresAt: number; user: { id: number; email: string; displayName: string; }; } | null>; write: (config: { token: string; expiresAt?: number | undefined; user?: { ...; } | undefined; } | undefined) => Promise<...>; }; ... 4 more ...; spacefast: ConfigStore<...>; }' but required in type '{ anthropic: ConfigStore<{ method: "api-key"; apiKey: string; } | { method: "setup-token"; token: string; }>; wpcom: ConfigStore<{ token: string; expiresAt?: number | undefined; user?: { ...; } | undefined; }>; ... 4 more ...; example: ConfigStore<...>; }'.
+=== packages/agent
+protocol/sessions/tests/model.test.ts(7,2): error TS2741: Property 'example' is missing in type '{ wpcom: { connected: true; method: string; } | { connected: false; }; anthropic: { connected: true; method: string; } | { connected: false; }; openai: { connected: true; method: string; } | { connected: false; }; gemini: { ...; }; 'github-copilot': { ...; }; spacefast: { ...; }; }' but required in type 'Record<ProviderId, ProviderAccount>'.
+../common/lib/provider-config.ts(73,7): error TS2741: Property 'example' is missing in type '{ wpcom: { read: () => Promise<{ token: string; expiresAt: number; user: { id: number; email: string; displayName: string; }; } | null>; write: (config: { token: string; expiresAt?: number | undefined; user?: { ...; } | undefined; } | undefined) => Promise<...>; }; ... 4 more ...; spacefast: ConfigStore<...>; }' but required in type '{ example: ConfigStore<{ method: "api-key"; apiKey: string; }>; wpcom: ConfigStore<{ token: string; expiresAt?: number | undefined; user?: { id: number; email: string; displayName: string; } | undefined; }>; ... 4 more ...; spacefast: ConfigStore<...>; }'.
+=== apps/studio
+src/modules/user-settings/lib/tests/settings-tracks.test.ts(119,3): error TS2741: Property 'example' is missing in type '{ wpcom: { connected: false; }; anthropic: { connected: false; } | { connected: true; method: string; summary: string; }; openai: { connected: false; }; gemini: { connected: false; }; 'github-copilot': { connected: false; }; spacefast: { ...; }; }' but required in type 'Record<ProviderId, ProviderAccount>'.
+=== apps/ui
+=== apps/cli
+=== apps/local
+=== apps/static

@@ -1,0 +1,233 @@
+diff --git a/packages/common/lib/provider-config.ts b/packages/common/lib/provider-config.ts
+index 8f8ead529..64240b06f 100644
+--- a/packages/common/lib/provider-config.ts
++++ b/packages/common/lib/provider-config.ts
+@@ -118,6 +118,7 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
+ 	gemini: providerConfigStore( 'gemini' ),
+ 	'github-copilot': providerConfigStore( 'github-copilot' ),
+ 	spacefast: providerConfigStore( 'spacefast' ),
++	example: providerConfigStore( 'example' ),
+ };
+ 
+ // A provider that came after the fields above keeps its config in `providerConfigs`.
+diff --git a/packages/providers/example/config.ts b/packages/providers/example/config.ts
+new file mode 100644
+index 000000000..b116ae7e4
+--- /dev/null
++++ b/packages/providers/example/config.ts
+@@ -0,0 +1,8 @@
++import { z } from 'zod';
++
++export const exampleConfigSchema = z.object( {
++	method: z.literal( 'api-key' ),
++	apiKey: z.string().min( 1 ),
++} );
++
++export type ExampleConfig = z.infer< typeof exampleConfigSchema >;
+diff --git a/packages/providers/example/descriptor.ts b/packages/providers/example/descriptor.ts
+new file mode 100644
+index 000000000..b878b2a17
+--- /dev/null
++++ b/packages/providers/example/descriptor.ts
+@@ -0,0 +1,32 @@
++import { __ } from '@wordpress/i18n';
++import { z } from 'zod';
++import { exampleConfigSchema, type ExampleConfig } from './config';
++import type { AiModel, Provider } from '../types';
++
++export const EXAMPLE_AI_MODELS = [
++	{ id: 'example-large', label: () => 'Example Large' },
++] as const satisfies readonly AiModel[];
++
++export const exampleConnectInput = () =>
++	z.object( {
++		apiKey: z
++			.string()
++			.trim()
++			.min( 1, __( 'API key is required' ) )
++			.meta( { title: __( 'Example API key' ), writeOnly: true } ),
++	} );
++
++export const exampleProvider: Provider< ExampleConfig > = {
++	id: 'example',
++	label: 'Example',
++	description: () => __( 'Use Example models with an API key.' ),
++	account: {
++		configSchema: exampleConfigSchema,
++		methods: [ { id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: exampleConnectInput } ],
++		describe: ( { apiKey } ) => ( { method: 'api-key', summary: `...${ apiKey.slice( -4 ) }` } ),
++	},
++	ai: {
++		models: EXAMPLE_AI_MODELS,
++		defaultModel: 'example-large',
++	},
++};
+diff --git a/packages/providers/example/services.ts b/packages/providers/example/services.ts
+new file mode 100644
+index 000000000..bd29ebf6e
+--- /dev/null
++++ b/packages/providers/example/services.ts
+@@ -0,0 +1,40 @@
++import { ConnectError, NotConnectedError } from '../errors';
++import { exampleConnectInput } from './descriptor';
++import type { ExampleConfig } from './config';
++import type { ProviderServices } from '../types';
++
++export const exampleServices: ProviderServices< ExampleConfig > = {
++	id: 'example',
++	account: {
++		async connect( _method, input ) {
++			const parsed = exampleConnectInput().safeParse( input );
++			if ( ! parsed.success ) {
++				throw new ConnectError( parsed.error.issues[ 0 ].message );
++			}
++			return { method: 'api-key', apiKey: parsed.data.apiKey };
++		},
++	},
++	ai: {
++		async model( config, modelId ) {
++			if ( ! config ) {
++				throw new NotConnectedError( 'Connect Example with an API key.' );
++			}
++			return {
++				piProvider: 'example',
++				apiKey: config.apiKey,
++				model: {
++					id: modelId,
++					name: 'Example Large',
++					api: 'openai-completions',
++					provider: 'example',
++					baseUrl: 'https://api.example.com/v1',
++					reasoning: false,
++					input: [ 'text' ],
++					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
++					contextWindow: 128_000,
++					maxTokens: 8_000,
++				},
++			};
++		},
++	},
++};
+diff --git a/packages/providers/example/tests/probe.test.ts b/packages/providers/example/tests/probe.test.ts
+new file mode 100644
+index 000000000..31dc8bedc
+--- /dev/null
++++ b/packages/providers/example/tests/probe.test.ts
+@@ -0,0 +1,14 @@
++import { it } from 'vitest';
++import { AI_PROVIDER_IDS, findAiModel, getProvider, normalizeProviderId, PROVIDER_IDS } from '../..';
++
++it( 'probe', () => {
++	console.log(
++		JSON.stringify( {
++			inProviderIds: ( PROVIDER_IDS as readonly string[] ).includes( 'example' ),
++			inAiProviderIds: ( AI_PROVIDER_IDS as readonly string[] ).includes( 'example' ),
++			getProviderLabel: getProvider( 'example' ).label,
++			normalizeProviderId: normalizeProviderId( 'example' ) ?? null,
++			findAiModel: findAiModel( 'example-large' ) ?? null,
++		} )
++	);
++} );
+diff --git a/packages/providers/models.ts b/packages/providers/models.ts
+index c81b83a06..a64b071a6 100644
+--- a/packages/providers/models.ts
++++ b/packages/providers/models.ts
+@@ -1,5 +1,6 @@
+ import { AI_PROVIDER_IDS, getProvider } from './registry';
+ import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
++import type { EXAMPLE_AI_MODELS } from './example/descriptor';
+ import type { GEMINI_AI_MODELS } from './gemini/descriptor';
+ import type { GITHUB_COPILOT_AI_MODELS } from './github-copilot/descriptor';
+ import type { OPENAI_AI_MODELS } from './openai/descriptor';
+@@ -12,6 +13,7 @@ export type AiModelId = (
+ 	| typeof OPENAI_AI_MODELS
+ 	| typeof GEMINI_AI_MODELS
+ 	| typeof GITHUB_COPILOT_AI_MODELS
++	| typeof EXAMPLE_AI_MODELS
+ )[ number ][ 'id' ];
+ 
+ /**
+diff --git a/packages/providers/registry.ts b/packages/providers/registry.ts
+index 911fff711..078783f90 100644
+--- a/packages/providers/registry.ts
++++ b/packages/providers/registry.ts
+@@ -1,4 +1,5 @@
+ import { anthropicProvider } from './anthropic/descriptor';
++import { exampleProvider } from './example/descriptor';
+ import { geminiProvider } from './gemini/descriptor';
+ import { githubCopilotProvider } from './github-copilot/descriptor';
+ import { openaiProvider } from './openai/descriptor';
+@@ -21,6 +22,7 @@ export const AI_PROVIDER_IDS = [
+ 	'openai',
+ 	'gemini',
+ 	'github-copilot',
++	'example',
+ ] as const satisfies readonly AiProviderId[];
+ 
+ // The providers with remote sites, in the order the publish panel offers them.
+@@ -45,6 +47,7 @@ const PROVIDERS: {
+ 	gemini: geminiProvider,
+ 	'github-copilot': githubCopilotProvider,
+ 	spacefast: spacefastProvider,
++	example: exampleProvider,
+ };
+ 
+ export function getProvider< Id extends ProviderId >(
+@@ -69,6 +72,7 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
+ 	gemini: 'gemini',
+ 	'github-copilot': 'github-copilot',
+ 	spacefast: 'spacefast',
++	example: 'example',
+ };
+ 
+ // The provider a stored or typed id names, among `ids`.
+diff --git a/packages/providers/services.ts b/packages/providers/services.ts
+index 89cb31163..7632d701d 100644
+--- a/packages/providers/services.ts
++++ b/packages/providers/services.ts
+@@ -1,4 +1,5 @@
+ import { anthropicServices } from './anthropic/services';
++import { exampleServices } from './example/services';
+ import { geminiServices } from './gemini/services';
+ import { githubCopilotServices } from './github-copilot/services';
+ import { openaiServices } from './openai/services';
+@@ -15,6 +16,7 @@ const SERVICES: {
+ 	gemini: geminiServices,
+ 	'github-copilot': githubCopilotServices,
+ 	spacefast: spacefastServices,
++	example: exampleServices,
+ };
+ 
+ export function getProviderServices< Id extends ProviderId >(
+diff --git a/packages/providers/types.ts b/packages/providers/types.ts
+index d61fd69bb..6f5d44884 100644
+--- a/packages/providers/types.ts
++++ b/packages/providers/types.ts
+@@ -1,4 +1,5 @@
+ import type { AnthropicConfig } from './anthropic/config';
++import type { ExampleConfig } from './example/config';
+ import type { GeminiConfig } from './gemini/config';
+ import type { GithubCopilotConfig } from './github-copilot/config';
+ import type { AiModelId } from './models';
+@@ -16,10 +17,11 @@ export type ProviderId =
+ 	| 'openai'
+ 	| 'gemini'
+ 	| 'github-copilot'
+-	| 'spacefast';
++	| 'spacefast'
++	| 'example';
+ 
+ // The providers that serve AI models.
+-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot';
++export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot' | 'example';
+ 
+ // What Studio stores for each provider.
+ export interface ProviderConfigs {
+@@ -29,6 +31,7 @@ export interface ProviderConfigs {
+ 	gemini: GeminiConfig;
+ 	'github-copilot': GithubCopilotConfig;
+ 	spacefast: SpacefastConfig;
++	example: ExampleConfig;
+ }
+ 
+ // The remote sites of each provider that offers them.
