@@ -32,41 +32,36 @@ export async function isProviderConnected( provider: ProviderId ): Promise< bool
 }
 
 // Asks for a form's fields, of which an optional one takes an empty answer. The provider checks the
-// values once the last one is entered, and a rejection asks again.
+// values once they're all entered, and a rejection asks for them all again, so any of them can be
+// corrected.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
 	const fields = getConnectFields( method );
-	const values: Record< string, string > = {};
-	for ( const [ index, field ] of fields.entries() ) {
-		const prompt = field.secret ? password : input;
-		values[ field.name ] = await prompt( {
-			message: sprintf(
-				field.required
-					? /* translators: %s: what the provider asks for, such as an API key */
-					  __( '%s (saved for future use):' )
-					: /* translators: %s: what the provider asks for, such as an API key */
-					  __( '%s (optional, saved for future use):' ),
-				field.title
-			),
-			...( field.secret ? { mask: '*' } : {} ),
-			validate: async ( value: string ) => {
-				const error = field.validate( value );
-				if ( error || index < fields.length - 1 ) {
-					return error ?? true;
-				}
-				try {
-					await connectProvider( getProviderServices( provider ), method.id, {
-						...values,
-						[ field.name ]: value,
-					} );
-					return true;
-				} catch ( rejection ) {
-					if ( rejection instanceof ConnectError ) {
-						return rejection.message;
-					}
-					throw rejection;
-				}
-			},
-		} );
+	for (;;) {
+		const values: Record< string, string > = {};
+		for ( const field of fields ) {
+			const prompt = field.secret ? password : input;
+			values[ field.name ] = await prompt( {
+				message: sprintf(
+					field.required
+						? /* translators: %s: what the provider asks for, such as an API key */
+						  __( '%s (saved for future use):' )
+						: /* translators: %s: what the provider asks for, such as an API key */
+						  __( '%s (optional, saved for future use):' ),
+					field.title
+				),
+				...( field.secret ? { mask: '*' } : {} ),
+				validate: ( value: string ) => field.validate( value ) ?? true,
+			} );
+		}
+		try {
+			await connectProvider( getProviderServices( provider ), method.id, values );
+			return;
+		} catch ( rejection ) {
+			if ( ! ( rejection instanceof ConnectError ) ) {
+				throw rejection;
+			}
+			console.error( rejection.message );
+		}
 	}
 }
 
