@@ -1,0 +1,11 @@
+# apps/studio/forge.config.ts's afterExtract hook applied to Electron 44.9.1 linux-arm64 (GitHub release zip), then a probe app run on it in a node:24-bookworm container
+# Command: sh scripts/linux-locale-hook-probe.sh <repo> <workdir> (script in this folder)
+packs: 55, links to en-US.pak: 28
+linked: am bg bn cs da el et fa fi fil gu hi hr kn lt lv ml mr nb ro sk sl sr sw ta te th ur 
+LANGUAGE=fi: getLocale=fi validationMessage="Please fill out this field."
+LANGUAGE=fi:de: getLocale=fi validationMessage="Please fill out this field."
+LANGUAGE=de: getLocale=de validationMessage="Fülle dieses Feld aus."
+LANGUAGE=ca: getLocale=ca validationMessage="Empleneu aquest camp."
+LANGUAGE=da:es: getLocale=da validationMessage="Please fill out this field."
+LANGUAGE=sw: getLocale=sw validationMessage="Please fill out this field."
+LANGUAGE=en_GB: getLocale=en-GB validationMessage="Please fill in this field."

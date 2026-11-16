@@ -1,4 +1,4 @@
-# Baseline (built from the baseline commit by the design doc, apps/studio/out copied to /tmp before packaging) vs the change, both packaged here with npm run make:macos-arm64 (unsigned; no Developer ID identity on this machine), DMG with npm run make:dmg-arm64; the change does not include the locale filtering (design-doc-decision-4, not built)
+# Baseline (built from the baseline commit by the design doc, apps/studio/out copied to /tmp before packaging) vs the change, both packaged here with npm run make:macos-arm64 (unsigned; no Developer ID identity on this machine), DMG with npm run make:dmg-arm64
 # Command: sh scripts/compare-macos-package.sh <baseline out> <change out> (script in this folder)
 == baseline
 app bytes (appSizeMac): 845641998
@@ -10,18 +10,21 @@ Resources/app.asar bytes: 61769323
 Resources/app.asar.unpacked: ./native/spotlight.node ./node_modules/@oxc-parser/binding-darwin-arm64/parser.darwin-arm64.node 
 Resources/php-bin: . ./8.4.27-studio-1 ./8.4.27-studio-1/ext ./8.4.27-studio-1/ext/xdebug.so ./8.4.27-studio-1/php ./8.4.27-studio-1/runtime.json 
 Resources/php-bin bytes: 71528738
-Electron Framework lproj count: 220
+Electron Framework lproj count: 220, locale packs linked: 0
+update zip symbolic links: 14
 == change
-app bytes (appSizeMac): 701949338
-app KiB (du -sk): 755960
-update zip bytes: 318258312
-dmg bytes: 252536914
+app bytes (appSizeMac): 671819387
+app KiB (du -sk): 726144
+update zip bytes: 311273791
+dmg bytes: 247688811
 Resources/cli/node_modules KiB: 160964; maps+declarations: 0
-Resources/app.asar bytes: 37611679
+Resources/app.asar bytes: 37611907
 Resources/app.asar.unpacked: ./native/spotlight.node 
 Resources/php-bin: . ./8.4.27-studio-1.tar.br 
-Resources/php-bin bytes: 18492902
-Electron Framework lproj count: 220
+Resources/php-bin bytes: 18494347
+Electron Framework lproj count: 220, locale packs linked: 112
+update zip symbolic links: 126
 
 # DMG format (hdiutil imageinfo): baseline UDZO (zlib), change ULMO (lzma)
-# The change's DMG mounts (hdiutil attach -readonly) on this macOS and its Studio.app is identical to the packaged one (diff -rq exit 0)
+# The change's DMG mounts (hdiutil attach -readonly) on this macOS, its Studio.app is identical to the packaged one (diff -rq exit 0) and keeps the 112 linked locale packs
+# codesign --verify --deep --strict on the change's Electron Framework (ad-hoc signed by the packager after the links are made): valid

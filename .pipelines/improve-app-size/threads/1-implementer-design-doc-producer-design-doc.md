@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved
 opener: implementer
 recipient: design-doc-producer
 about: design-doc
@@ -68,3 +68,7 @@ The same treatment on every platform: each locale Studio maps to English carries
 - **Windows:** the pack is a copy of `en-US.pak`, because the setup program, update package and Store package can't carry links. Measured on Electron 44.9.1 win32-x64: the 28 packs are 30,280,090 bytes, and 28 copies of `en-US.pak` (586,582 bytes each) take 16,424,296. That still saves 13,855,794 bytes installed and 1,435,149 with deflate. Keeping every pack on Windows would save nothing and leave Windows with different Chromium strings from the other platforms.
 
 Windows itself isn't observed. The copies keep all 55 pack files present, as in the baseline, so Chromium keeps its choice if it chooses from the files present. That's design-doc-assumption-4, which the new system-language end-to-end test on Windows confirms.
+
+## implementer — 16b35c9c89cd165245d2451c7affeaa79fca8e21
+
+Resolved by the revised design-doc-decision-4 in bd346affb, which keeps a pack for every locale and gives the locales Studio maps to English the English pack. I'm building it as revised. Each macOS gendered variant links to the matching English variant: all 165 gendered packs are the same 18-byte empty pack, so their content doesn't change.

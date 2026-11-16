@@ -24,5 +24,6 @@ for label in baseline change; do
 	echo "Resources/app.asar.unpacked: $(cd "$R/app.asar.unpacked" && find . -type f | tr '\n' ' ')"
 	echo "Resources/php-bin: $(cd "$R/php-bin" && find . | sort | tr '\n' ' ')"
 	echo "Resources/php-bin bytes: $(find "$R/php-bin" -type f -exec stat -f %z {} + | awk '{s+=$1}END{print s}')"
-	echo "Electron Framework lproj count: $(ls -d "$A/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/"*.lproj | wc -l | tr -d ' ')"
+	echo "Electron Framework lproj count: $(ls -d "$A/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/"*.lproj | wc -l | tr -d ' '), locale packs linked: $(find "$A/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources" -name locale.pak -type l | wc -l | tr -d ' ')"
+	echo "update zip symbolic links: $(zipinfo "$O"/make/zip/darwin/arm64/*.zip | grep -c '^l')"
 done

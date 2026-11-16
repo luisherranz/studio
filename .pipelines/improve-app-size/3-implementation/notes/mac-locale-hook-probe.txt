@@ -1,0 +1,10 @@
+# The change's macOS arm64 package (packaged with the afterExtract hook), app.asar replaced by the probe app, no further changes
+# Command: sh scripts/mac-locale-probe.sh <Studio.app> <workdir> <AppleLanguages> (script in this folder)
+lang=(fi): getLocale=fi preferred=fi validationMessage="Please fill out this field."
+lang=(fi,de): getLocale=fi preferred=fi,de validationMessage="Please fill out this field."
+lang=(de): getLocale=de preferred=de validationMessage="Fülle dieses Feld aus."
+lang=(ca): getLocale=ca preferred=ca validationMessage="Empleneu aquest camp."
+lang=(da,es): getLocale=da preferred=da,es validationMessage="Please fill out this field."
+lang=(sw): getLocale=sw preferred=sw validationMessage="Please fill out this field."
+lang=(en): getLocale=en-US preferred=en validationMessage="Please fill out this field."
+lang=(en-GB): getLocale=en-GB preferred=en-GB validationMessage="Please fill in this field."

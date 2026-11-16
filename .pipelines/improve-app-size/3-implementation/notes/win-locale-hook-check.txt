@@ -1,0 +1,5 @@
+# apps/studio/forge.config.ts's afterExtract hook applied to Electron 44.9.1 win32-x64 (GitHub release zip) on this Mac; Windows itself not run
+# Command: sh scripts/win-locale-hook-check.sh <repo> <workdir> (script in this folder)
+packs: 55, links: 0, copies of en-US.pak: 28
+copied: am bg bn cs da el et fa fi fil gu hi hr kn lt lv ml mr nb ro sk sl sr sw ta te th ur 
+locale pack bytes: before=50643459 after=36787665 saved=13855794
