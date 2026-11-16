@@ -455,8 +455,8 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						  )
 						: getModelLabel( id );
 				labelToId.set( label, id );
-				// A server's model is known by its name, not by Studio's id for it.
-				return { label, description: userServer ? getModelLabel( id ) : id };
+				// A server's model is known by its name, which its label already is.
+				return { label, description: userServer ? '' : id };
 			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },
