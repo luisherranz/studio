@@ -1163,24 +1163,30 @@ describe( 'Composer drafts and attachments', () => {
 		[ 'holds images back for', 'local-llm/qwen3:0.6b', false ],
 		[ 'sends images to', 'local-llm/gemma3:4b', true ],
 	] as const )(
-		'%s a local model by what its server says it reads',
+		'%s a local model by what its server says it reads, once it says',
 		async ( _case, model, sends ) => {
+			let answer!: () => void;
+			const answered = new Promise< void >( ( resolve ) => ( answer = resolve ) );
 			const connector = createFakeConnector(
 				{},
 				{
 					getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
-					listProviderModels: async () => [
-						{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
-						{ id: 'local-llm/gemma3:4b', name: 'gemma3:4b', supportsImages: true },
-					],
+					listProviderModels: async () => {
+						await answered;
+						return [
+							{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
+							{ id: 'local-llm/gemma3:4b', name: 'gemma3:4b', supportsImages: true },
+						];
+					},
 				}
 			);
 			saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
-			const { input, onSend, queryClient } = await setup( { model }, connector );
+			const { input, onSend } = await setup( { model }, connector );
 			await waitFor( () => expect( connector.listProviderModels ).toHaveBeenCalled() );
-			await waitFor( () => expect( queryClient.isFetching() ).toBe( 0 ) );
 
+			// Sent before the server said what the model reads.
 			fireEvent.keyDown( input, { key: 'Enter' } );
+			answer();
 
 			if ( sends ) {
 				await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
@@ -1197,6 +1203,31 @@ describe( 'Composer drafts and attachments', () => {
 			}
 		}
 	);
+
+	it( 'says why it holds images back when a local model’s server doesn’t answer', async () => {
+		const connector = createFakeConnector(
+			{},
+			{
+				getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
+				listProviderModels: async () => {
+					throw new Error(
+						'The local server at http://localhost:11434 isn’t answering. Start it, then send your message again.'
+					);
+				},
+			}
+		);
+		saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
+		const { input, onSend } = await setup( { model: 'local-llm/gemma3:4b' }, connector );
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+
+		expect(
+			await screen.findByText(
+				'The local server at http://localhost:11434 isn’t answering. Start it, then send your message again'
+			)
+		).toBeVisible();
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
 
 	it( 'adds a preview screenshot to the draft and sends it as an ordinary image', async () => {
 		saveComposerDraft( 'test', {
