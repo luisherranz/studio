@@ -1,10 +1,10 @@
-# Design Doc: Add a provider to @studio/providers from its own folder
+# Design Doc: Add a provider to @studio/providers from its folder and one registration entry
 
 ## Overview
 
 Today a provider exists in Studio only once it is written into hand-maintained lists. Inside `@studio/providers` these are the id unions (`ProviderId`, `AiProviderId`), the type maps (`ProviderConfigs`, `ProviderSites`), the model-id union (`AiModelId`), and the id lists and maps (`AI_PROVIDER_IDS`, `SITES_PROVIDER_IDS`, `PROVIDER_IDS`, `PROVIDERS`, `STORED_PROVIDER_IDS`, `SERVICES`). Outside the package they are Studio's per-provider config and connection stores in `@studio/common`, the folder list of the lint boundary, and tests that list every provider's account. Some of these lists still typecheck when a provider is missing from them, and a provider left out of them appears in no surface. The contract also mixes in parts that only WordPress.com uses, without saying so. Separately, the agent sends any model API it doesn't recognize as `openai-responses`.
 
-After the change, a provider is its folder plus one entry appended to an ordered registration in `registry.ts`. Every provider list and id union derives from that registration, in its order. The services entry finds each folder's services by the folder's layout, so it needs no list of its own. A provider's contract is written in terms of its own id, config, site and model ids, and its services are checked against its own descriptor. Typecheck reports a missing part in the provider's folder. ESLint reports a folder that isn't registered, or that is registered without checked services. Studio stores any provider's config and remote-site connections in the shared sections by default, and only the first providers keep their legacy fields. The lint boundary matches provider folders by pattern. The agent runs exactly the four model APIs the contract names and rejects any other by name. Studio on the web offers only the hosting providers it can publish to. The contract documents every value. Only WordPress.com may declare the Studio sign-in's connect method. The package README is the complete guide to adding a provider.
+After the change, a developer adds a provider by changing only the package: its folder, plus one entry appended to an ordered registration in `registry.ts`. Every provider list and id union derives from that registration, in its order. The services entry finds each folder's services by the folder's layout, so it needs no list of its own. A provider's contract is written in terms of its own id, config, site and model ids, and its services are checked against its own descriptor: typecheck reports a missing part in the provider's `services.ts`. The package's own tests report a folder that isn't registered, and a registered provider whose services are missing or lack a part, naming the folder and the part. Studio stores any provider's config and remote-site connections in the shared sections by default, and only the first providers keep their legacy fields. The lint boundary matches provider folders by pattern, so ESLint reports a boundary crossing in the provider's own file. The agent runs exactly the four model APIs the contract names and rejects any other by name. Studio on the web offers only the hosting providers it can publish to. The contract documents every value. Only WordPress.com may declare the Studio sign-in's connect method. The package README is the complete guide to adding a provider.
 
 ## Architecture
 
@@ -25,11 +25,10 @@ New or reshaped inside `@studio/providers`:
   - the reference documentation of every value.
 - **Models** (`models.ts`): `AiModelId` derived from the registered descriptors' models, and `findAiModel`, `getAiModels` and `getDefaultAiModel` with today's behavior.
 - **The services entry** (`services.ts`): `getProviderServices( id )`, built from every folder's `services.ts`, which it finds by the folder's layout.
-- **The package's own tests** (`packages/providers/tests/`): registry-wide checks that hold for any set of providers.
+- **The package's own tests** (`packages/providers/tests/`): the checks that every provider folder is registered, and that every registered provider's services are found, carry its id and hold every part its descriptor needs, together with the registry-wide checks that hold for any set of providers.
 
 Changed once outside the package, so that a later provider needs no change there:
 
-- `tools/eslint-plugin-studio`: a rule that checks every provider folder against the registration, enabled for `@studio/providers` in `eslint.config.mjs`.
 - `eslint.config.mjs`: the surface boundary of `@studio/providers` matches any provider folder by pattern.
 - `@studio/common/lib/provider-config.ts` and `@studio/common/lib/remote-sites.ts`: a default store for any provider, with overrides only where builds of every version read a legacy field.
 - `@studio/agent/shared/models.ts`: a stream for each of the four model APIs, and a failed turn for a connection that names any other API.
@@ -73,20 +72,21 @@ design-doc-decision-1: One ordered registration, from which every provider list 
 The derived exports keep their names, their values for the six providers, and their meaning, so their consumers don't change. A provider that declares both capabilities is in both lists under one id, so one config serves both. Appending keeps WordPress.com first everywhere Studio picks the first connected or ready provider. Through `findAiModel`'s first match, a model id shared with an existing provider keeps resolving to the existing provider's listing. The package's own tests hold the six existing providers at the head of the list. The hand-written unions, type maps, id lists and descriptor map are removed.
 **Alternatives:**
 - Discovering descriptors by folder, with no registration. Rejected: discovery order is alphabetical, which would move WordPress.com from first to last and change the fallback order and shared-model lookup. Discovery also loses the literal ids the unions need.
-- Keeping the hand-written lists and checking them with a test. Rejected: adding a provider would still take edits in several places, and spec-requirement-1 allows one.
+- Keeping the hand-written lists and checking them with a test. Not taken: a provider would still be written into the lists, unions and maps the Overview names, across the package's shared files, which is the difficulty the Goal's "easily" names. A forgotten one is reported by typecheck in the shared file that lists it, or not at all for `AI_PROVIDER_IDS`, where spec-requirement-3 asks for a report at the developer's own code. Deriving the lists removes those mistakes instead of reporting them.
 **Trade-offs:** The derived types come from the descriptors' inferred types, so a descriptor must keep its literal id and model ids (design-doc-decision-3). Order is a convention backed by a package test, not by the type system.
 **Claims:**
 - observed: read `packages/providers/registry.ts:17-48`, `types.ts:13-45` and `models.ts:9-15`: the lists and maps a provider is written into today.
 - observed: today's derived orders equal the registration order filtered by capability: `AI_PROVIDER_IDS` is wpcom, anthropic, openai, gemini, github-copilot, and `PROVIDER_IDS` adds spacefast (read `registry.ts:18-35`).
 - observed: `findAiModel` returns the first provider that lists an id (read `models.ts:31-41`), and the CLI picks the first connected provider in `AI_PROVIDER_IDS` order (read `apps/cli/ai/auth.ts:39-48`).
+- observed: a provider missing from the exhaustive maps is reported at `registry.ts(39,7)`, `registry.ts(65,7)` and `services.ts(9,7)`, and its model ids in its own descriptor until the shared union in `models.ts` lists them (`.pipelines/providers-api-for-external-devs/1-spec/spec/probe/1-readme-steps-providers-typecheck.txt`). A provider left out of `AI_PROVIDER_IDS` passes typecheck and appears in no surface (`.pipelines/providers-api-for-external-devs/1-spec/spec/probe/2-registered-providers-typecheck.txt` and `2-registered-lists.json`).
 - assumed: TypeScript derives the literal unions from the registration without a circular reference; see design-doc-assumption-5.
 
 design-doc-decision-2: Each folder's services are found by the folder's layout
 
 **Serves:** spec-requirement-1, spec-requirement-2, spec-requirement-3, spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-3
-**Decision:** The services entry (`@studio/providers/services`) collects the services that every provider folder's `services.ts` exports. Vite's glob import finds them at build time. `getProviderServices( id )` keeps its signature and stays synchronous. It returns the services whose `id` is `id`. For a registered provider without services, it throws an error that names the provider and the module it expects. The surface entry (`@studio/providers`) never reaches services code, so `apps/ui` bundles only descriptors, as today. The package's own tests check that every registered provider resolves through the services entry to services with its id, and that provider ids are unique. The hand-written services map is removed.
+**Decision:** The services entry (`@studio/providers/services`) collects the services that every provider folder's `services.ts` exports. Vite's glob import finds them at build time. `getProviderServices( id )` keeps its signature and stays synchronous. It returns the services whose `id` is `id`. For a registered provider without services, it throws an error that names the provider and the module it expects. The surface entry (`@studio/providers`) never reaches services code, so `apps/ui` bundles only descriptors, as today. The package's own tests check that provider ids are unique, and design-doc-decision-4's tests that every registered provider resolves through the services entry. The hand-written services map is removed.
 **Alternatives:**
-- A second, typed list in `services.ts`. Rejected: that is a second registration, which spec-requirement-1 rules out.
+- A second, typed list in `services.ts`, which would check each provider's services against its descriptor without a helper. Not taken: every provider is then a second edit in a shared file. A forgotten entry is reported by typecheck at the shared list's declaration, in a message that spans every provider's type, as today's `SERVICES` is, where spec-requirement-3 asks for a report at the developer's own code. The services helper of design-doc-decision-3 gives the same type check in the provider's own `services.ts`.
 - A registration that imports both halves. Rejected: the surface entry would import services code. `apps/ui` would then bundle the services, or rely on tree-shaking to drop them, and the surface boundary in `eslint.config.mjs:433-457` would have to go.
 - A lazy `import()` of each services module from the registration. Rejected: `getProviderServices` would become asynchronous for every caller, `apps/ui` would bundle the services as chunks, and the lint boundary reports dynamic imports too.
 - Generating the services map, or both maps, from a manifest with a script. Rejected: it adds a build step and a generated file that changes with every provider, and Vite already offers build-time discovery.
@@ -96,12 +96,12 @@ design-doc-decision-2: Each folder's services are found by the folder's layout
 - Studio on the web through Vite;
 - tests through Vitest.
 
-A consumer that loads the entry without Vite would find no services. A missing services module is no longer a typecheck error, as it is with today's exhaustive map; design-doc-decision-4's lint rule reports it instead.
+A consumer that loads the entry without Vite would find no services. A missing services module is no longer a typecheck error, as it is with today's exhaustive map; design-doc-decision-4's package tests report it instead, naming the provider's folder.
 **Claims:**
 - observed: `@studio/agent` already discovers files this way, in code the CLI and Studio on the web run (read `packages/agent/shared/skills.ts:1-18`, with `/// <reference types="vite/client" />`).
 - observed: knip enables its Vite plugin for `packages/providers`, and treats non-raw `import.meta.glob` targets as entries without analyzing their exports (`npx knip --workspace packages/providers --debug` and knip's source, in `.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/knip-vite-glob.txt`).
 - observed: every importer of `@studio/providers/services` is in `apps/cli`, `apps/local`, `apps/studio`, `apps/static` or tests (`git grep -n "providers/services"`).
-- observed: today `SERVICES` is typed over every `ProviderId`, so a registered provider without services fails typecheck (read `packages/providers/services.ts:9-18`).
+- observed: today `SERVICES` is typed over every `ProviderId`, so a registered provider without services fails typecheck at `services.ts(9,7)`, the map's declaration (read `packages/providers/services.ts:9-18`, and `.pipelines/providers-api-for-external-devs/1-spec/spec/probe/1-readme-steps-providers-typecheck.txt`).
 - assumed: electron-vite's main build resolves the glob; see design-doc-assumption-1.
 - assumed: every TypeScript program that reaches the services entry accepts `vite/client` types; see design-doc-assumption-3.
 
@@ -128,7 +128,7 @@ The consumer-facing types (`Provider`, `ProviderServices`, `AccountDetails` and 
 - Today's `Provider.ai`/`Provider.sites` and `ProviderServices.ai`/`ProviderServices.sites`, optional independently of each other. Rejected: they let a provider list models with no model connection, which is reported only as "offers no AI models" when a chat starts.
 - A services helper that takes the provider's registered id, so services in an unregistered folder fail typecheck. Not taken: provider code would reference the registry's derived types, and design-doc-decision-4 reports an unregistered folder whether or not it has services yet.
 - Image generation as a capability of its own, so a service offering only images could be a provider without chat models. Not taken: no provider or source shows one. spec-requirement-2 has a provider generate images when it is the chat's provider, or as the first connected AI provider that offers images, and today image services are an optional part of `ai`.
-**Trade-offs:** The contract's types become conditional on the descriptor, so a typecheck error can be longer than a plain missing-property error (design-doc-assumption-2). Services written without the helper escape this check; design-doc-decision-4's lint rule reports them.
+**Trade-offs:** The contract's types become conditional on the descriptor, so a typecheck error can be longer than a plain missing-property error (design-doc-assumption-2). Services written without the helper escape this check; design-doc-decision-4's package tests report the parts they lack.
 **Claims:**
 - observed: the descriptor's and the services' capabilities are optional independently of each other (read `packages/providers/types.ts:173-179` and `305-320`), and a missing model connection shows as "offers no AI models" at chat time (read `apps/cli/ai/auth.ts:84-91`).
 - observed: the device and loopback providers (OpenAI, GitHub Copilot, Spacefast) implement `account.start`, and the form and redirect providers don't (read `packages/providers/{openai,github-copilot,spacefast}/account.ts`).
@@ -136,25 +136,25 @@ The consumer-facing types (`Provider`, `ProviderServices`, `AccountDetails` and 
 - observed: image generation is an optional part of `ProviderServices.ai` (read `types.ts:305-319`).
 - assumed: an omitted or extra part is reported naming it; see design-doc-assumption-2.
 
-design-doc-decision-4: ESLint reports a provider folder that is unregistered, or registered without checked services
+design-doc-decision-4: The package's tests report a provider folder that is unregistered, or registered without complete services
 
 **Serves:** spec-requirement-3, spec-requirement-1, spec-acceptance-criterion-9, spec-acceptance-criterion-10
-**Decision:** A new rule in `eslint-plugin-studio`, enabled once for `@studio/providers` in `eslint.config.mjs`, checks each provider folder against the registration. It reports:
-- in a folder's descriptor, a provider folder the registration doesn't list;
-- at a registration entry, a registered provider whose folder has no `services.ts`, naming the module it expects;
-- in a folder's `services.ts`, services that it doesn't export through the services helper of design-doc-decision-3, under the name the services entry reads.
+**Decision:** The package's own tests, which `npm test` runs, check every provider folder against the registration and the services entry. A provider folder is any folder of the package that holds a `descriptor.ts`. The tests fail, naming the provider's folder and file and the missing part, for:
+- a provider folder whose descriptor the registration doesn't list, naming the registration as the missing part;
+- a registered provider whose services the services entry doesn't find, naming the module and export it expects;
+- a registered provider whose services carry another id, or lack a part its descriptor needs, as design-doc-decision-3 lists the parts.
 
-Together with the services helper's type check, this means a registered provider that passes typecheck and lint has services that the services entry finds and that hold every part its descriptor declares. Each report lands in a file that a contribution changes, so ESLint on the changed files shows it. Adding a provider never changes the rule or its configuration.
+The last check holds whether or not the services were declared through the services helper, so a missing part is named even where typecheck didn't check it. With the helper's type check, a provider that passes the checks has services that the services entry finds and that hold every part its descriptor declares. Adding a provider never changes the tests.
 **Alternatives:**
-- Leaving a missing services module to the package tests and to the first connect or chat. Rejected: spec-requirement-3 and spec-acceptance-criterion-9 ask typecheck or lint to report it. A registered provider without services lists its models with no model connection and would pass both.
+- A rule in `eslint-plugin-studio`, enabled for the package in `eslint.config.mjs`, that reads the registration and each folder and reports in the developer's descriptor, registration entry or `services.ts`. Not taken: it is infrastructure outside the package, a rule whose result for one file depends on the registration and the folder layout. It checks how the services are written rather than what they hold, so services written without the helper are reported without naming the part they lack. Its one gain over the tests is that the report sits at a line of the developer's file, and the tests' report names that file instead.
+- Checking only that the services were declared through the services helper. Not taken: when services written without it lack a part, the report names the helper, not the part spec-requirement-3 asks it to name.
 - A type-only reference to each folder's services from the registration, so a missing module fails typecheck. Rejected: the surface boundary reports type-only imports, and a `typeof import()` type query escapes it only because the rule doesn't visit type queries. That works against spec-requirement-7's boundary, and every registration entry would have to name both halves.
-**Trade-offs:** The rule is infrastructure the repository maintains. Its result for one file depends on other files, the folder layout and the registration. That works because nothing lints with a cache, and a contribution's changed files include the file each report lands in.
+**Trade-offs:** The report appears in `npm test`'s output, not at a line of the provider's file, and not while the developer types. For services declared through the helper, typecheck reports a missing part earlier, in `services.ts`. The parts each capability and connect method needs are stated twice, in the helper's types and in the tests' check. A part added to one and not the other weakens only the check of services written without the helper.
 **Claims:**
-- observed: `tools/eslint-plugin-studio/src/rules` holds the repository's custom rules, each with a test in `tools/eslint-plugin-studio/tests` (`ls`).
-- observed: `eslint.config.mjs` already reads folders from disk to build `apps/ui`'s layer zones (read `eslint.config.mjs:60-110`).
-- observed: no workspace lints with `--cache`, and `@studio/providers` lints with `eslint .` (`.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/observations.txt`).
+- observed: Vitest resolves `import.meta.glob` in workspace code: `loadSkills()` reads only the glob in `packages/agent/shared/skills.ts`, and `packages/agent/node/tests/plugin-skills.test.ts` passes against it (`.pipelines/providers-api-for-external-devs-v2/2-design-doc/lanes/v1/design-doc/vitest-glob.txt`).
+- observed: `npm test` runs `vitest run` over the projects of `vitest.config.ts`, which include `packages/providers/vitest.config.ts` and its `**/*.test.ts` (read `package.json:62`, `vitest.config.ts:5-16` and `packages/providers/vitest.config.ts`).
 - observed: `import-x/no-restricted-paths` visits type-only import declarations but not `typeof import()` type queries (eslint-plugin-import-x 4.17.1 source, `.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/lint-restricted-paths.txt`).
-- assumed: each report appears at its location, naming the missing part; see design-doc-assumption-6.
+- assumed: each failure names the provider's folder and file and the missing part; see design-doc-assumption-7.
 
 design-doc-decision-5: Studio stores any provider's config and remote-site connections in the shared sections by default
 
@@ -181,17 +181,19 @@ In the registry, the stored-id mapping keeps one exception, Anthropic's `anthrop
 design-doc-decision-6: The package's lint boundary matches provider folders by pattern
 
 **Serves:** spec-requirement-7, spec-requirement-1, spec-acceptance-criterion-15
-**Decision:** In `eslint.config.mjs`, the surface boundary of `@studio/providers` matches any provider folder by pattern, not by a list of names. Its restricted zone covers the package. Its exceptions are the package's shared surface files, any folder's `descriptor.ts` and `config.ts`, and WordPress.com's `sites/site.ts`. As a result, ESLint:
-- reports a surface file of any folder that imports anything else;
-- lets a folder's descriptor import its own config with no configuration change.
+**Decision:** In `eslint.config.mjs`, the surface boundary of `@studio/providers` matches any provider folder by pattern, not by a list of names. Its restricted zone covers the package. Its exceptions are the package's shared surface files, any folder's `descriptor.ts` and `config.ts`, and WordPress.com's `sites/site.ts`. A provider's part that surfaces read is therefore its descriptor and config. As a result, with nothing outside the package changed, ESLint:
+- reports, at the import, a surface file of any folder that imports anything else;
+- lets a folder's descriptor import its own config.
 
-The rules against Node APIs and other workspace packages already cover every file in the package, and they stay as they are.
+The rules against Node APIs and other workspace packages already cover every file in the package, and they stay as they are. Each report lands in the provider's own file, which ESLint on the changed files covers.
 **Alternatives:**
 - Generating the folder list from the file system in `eslint.config.mjs`, as the config already does for `apps/ui`'s layers. Rejected: the rule takes glob exceptions directly, so a pattern is simpler and doesn't depend on which folders exist when lint starts.
 - A custom rule for the boundary. Rejected: the existing rule covers it.
-**Trade-offs:** A provider's descriptor may import another provider's descriptor or config, as the six may today.
+- A package test that checks each provider file's imports. Not taken: ESLint's existing rules already report each crossing at the import that crosses it, and a test would repeat them with its report away from that code.
+**Trade-offs:** A provider's descriptor may import another provider's descriptor or config, as the six may today. A descriptor that imports a data module of its own folder other than its config is reported, so the README tells a developer to keep what surfaces read in those two files.
 **Claims:**
 - observed: the exceptions list the six folders by name (read `eslint.config.mjs:33-45,433-457`).
+- observed: every descriptor imports only its own config, the package's shared surface files and npm packages, except WordPress.com's, which also imports `wpcom/sites/site.ts` (read the imports of `packages/providers/*/descriptor.ts`).
 - observed: `import-x/no-restricted-paths` accepts glob exceptions when the zone's `from` is a glob, and matches them against the imported file's absolute path (eslint-plugin-import-x 4.17.1 source, `.pipelines/providers-api-for-external-devs/2-design-doc/design-doc/lint-restricted-paths.txt`).
 - observed: the Node-API and workspace-package rules match `packages/providers/**/*.ts` (read `eslint.config.mjs:410-431`).
 
@@ -278,22 +280,23 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 
 **Serves:** spec-requirement-4, spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-11
 **Decision:** `packages/providers/README.md`'s section on adding a provider covers:
-- the steps, which are exactly the folder and the appended registration entry;
+- every change a developer makes, all of them inside the package: the provider's folder and the entry appended to the registration;
 - for each capability, the parts a provider fills in, as design-doc-decision-3 requires them;
 - the connect methods a new provider can use (`form`, `device`, `loopback`), and the apps that offer each (Studio on the web offers forms only);
 - the four model APIs;
 - which declared values Studio stores and that they never change: the provider id, model ids and connect-method ids;
-- that a provider's code runs in Node and in the page;
-- how to test a provider: its own `tests/`, the package tests and lint rule that check its registration, and `npm test -- packages/providers`.
+- that a provider's code runs in Node and in the page, and that what surfaces read of it stays in its descriptor and config;
+- how to test a provider: its own `tests/`, the package tests that check its registration and services, and `npm test -- packages/providers`.
 
-`docs/design-docs/providers.md` states the same architecture: the registration, services found by folder, the lint rule, default storage, and the four APIs. The README points to the contract's reference documentation (design-doc-decision-10) instead of repeating it.
-**Alternatives:** A generator command that creates a provider's folder. Not taken: the spec's "Considered and not required" leaves it out, and documentation alone meets spec-requirement-4.
+`docs/design-docs/providers.md` states the same architecture: the registration, services found by folder, the package tests that check them, default storage, and the four APIs. The README points to the contract's reference documentation (design-doc-decision-10) instead of repeating it.
+**Alternatives:** A generator command that creates a provider's files. Not taken: the spec's "Considered and not required" leaves it out, and documentation alone meets spec-requirement-4.
 **Trade-offs:** The README and the contract can drift. The README states the rules, and the contract documents the values.
 **Claims:** observed: today's steps leave out `AiProviderId`, the id lists, `STORED_PROVIDER_IDS`, `AiModelId`, the lint folder list and the agent (read `packages/providers/README.md:57-59`, and `.pipelines/providers-api-for-external-devs/1-spec/spec/probe/README.md`).
 
 ## Interfaces
 
 **A provider's folder (`packages/providers/<folder>/`)**
+- A provider folder is any folder of the package that holds a `descriptor.ts`.
 - `config.ts`: the zod schema of what Studio stores for the provider.
 - `descriptor.ts`: the provider's descriptor, declared through the descriptor helper. It holds:
   - the literal id, label, description, learn-more URL, icon and logo;
@@ -316,10 +319,12 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 
 **The services entry (`@studio/providers/services`)**: `getProviderServices( id )` returns `ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >`, synchronously. For a registered provider without services, it throws an error naming the provider. `createTusUpload` stays.
 
-**The provider lint rule (`eslint-plugin-studio`)**: for `@studio/providers`, it reports:
-- an unregistered provider folder, in its descriptor;
-- a registered provider without `services.ts`, at its registration entry;
-- services not exported through the services helper, in `services.ts`.
+**The package's checks (`packages/providers/tests`)**: `npm test` fails, naming the provider's folder and file and the missing part, for:
+- a provider folder the registration doesn't list;
+- a registered provider whose services the services entry doesn't find;
+- registered services that carry another id, or lack a part their descriptor needs;
+- two providers with the same id;
+- a registration whose head isn't the six existing providers in today's order.
 
 **Studio's storage (`@studio/common`)**
 - `readProviderConfig`, `writeProviderConfig`, `readFreshProviderConfig`, `forgetRejectedConfig` and `readSignInContext` take any registered provider. They store under `providerConfigs.<id>`, except WordPress.com (`authToken`) and Anthropic's API key (`anthropicApiKey`).
@@ -335,7 +340,7 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
   - among consumers, the two agent runtimes already handle only these.
 - A descriptor's `defaultModel`, `paidDefaultModel` and `AccountDetails.models` accept only the provider's own model ids. WordPress.com and GitHub Copilot already conform.
 - A `redirect` connect method is accepted only in WordPress.com's descriptor. WordPress.com is the only provider that declares one today.
-- A folder's services must be declared through the services helper and exported where the services entry reads them. The six providers move to that.
+- A provider folder's services are exported under the name the services entry reads, carry the provider's id, and hold every part its descriptor needs. The six providers move to that, through the services helper.
 - Publishing on Studio on the web is limited to WordPress.com, the same set as today for the six providers.
 
 **Contracts widened by the change, and what each consumer newly admits**
@@ -351,22 +356,21 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 
 ## Dependencies
 
-- Vite's `import.meta.glob` and its `vite/client` types, for the services entry. These are not new: `vite` is a root dev dependency, and `@studio/agent/shared/skills.ts` uses both in code the CLI and Studio on the web bundle.
+- Vite's `import.meta.glob` and its `vite/client` types, for the services entry and the package's checks. These are not new: `vite` is a root dev dependency, and `@studio/agent/shared/skills.ts` uses both in code the CLI and Studio on the web bundle and Vitest runs.
 - knip's Vite plugin, already enabled for `packages/providers`, follows the services glob.
 - `eslint-plugin-import-x`'s `no-restricted-paths` with glob exceptions (4.17.1, already installed).
-- `eslint-plugin-studio`, the repository's own plugin, gains the provider rule.
 - `@earendil-works/pi-ai`'s `Model` type (1.5.0, already a dependency), narrowed to the four APIs.
 - No new npm dependency, and no change to the bundle scripts: the SDKs of the four APIs already ship, and the Mistral and AWS SDKs stay stripped.
 
 ## Failure modes and observability
 
-- **A provider folder that isn't registered:** an ESLint error in its descriptor.
-- **A registered provider whose folder has no `services.ts`:** an ESLint error at its registration entry, naming the expected module. If lint is skipped, the package tests fail, and at run time `getProviderServices` throws naming the provider and the module. A surface shows that error when the user connects or chats, the way hosts show any thrown error today.
-- **Services not declared through the services helper:** an ESLint error in the folder's `services.ts`.
-- **Services missing a part their descriptor declares, or declaring one it doesn't:** a typecheck error in the folder's `services.ts`, naming the part.
+- **A provider folder that isn't registered:** `npm test` fails, naming the folder's descriptor and the registration it is missing from.
+- **A registered provider whose folder has no services the services entry finds:** `npm test` fails, naming the provider's folder and the module and export it expects. At run time `getProviderServices` throws naming the provider and the module. A surface shows that error when the user connects or chats, the way hosts show any thrown error today.
+- **Services missing a part their descriptor declares:** a typecheck error in the folder's `services.ts`, naming the part, when they are declared through the services helper. Whether or not they are, `npm test` fails, naming the folder and the part.
+- **Services declaring a part for a capability their descriptor doesn't declare:** a typecheck error in the folder's `services.ts`, naming the part.
 - **A `redirect` connect method outside WordPress.com:** a typecheck error in the provider's descriptor.
 - **A connection naming an API Studio doesn't run:** a typecheck error in the folder, naming the API. If it is cast past the types, the chat's turn ends with an error naming the API, and nothing is sent.
-- **A surface file that imports beyond the boundary, or code that imports a Node API or another workspace package:** an ESLint error in the offending file of the folder.
+- **A surface file that imports beyond the boundary, or code that imports a Node API or another workspace package:** an ESLint error at the import, in the offending file of the folder.
 - **A provider inserted before existing ones:** the package tests fail, since the six existing providers must lead the registration in today's order.
 - **Two providers with the same id:** the package tests fail.
 - **A build that doesn't resolve the services glob:** the services entry is empty, and every `getProviderServices` call throws naming its provider. The first connect or chat shows it, as do the end-to-end runs and the Desktop bundle check under Verification.
@@ -381,9 +385,9 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
   - services that declare a capability their descriptor doesn't;
   - a `redirect` method in a descriptor other than WordPress.com's.
 - new test at the package's types (checked by `npm run typecheck`) — design-doc-decision-7, spec-acceptance-criterion-14 — a connection whose API is outside the four fails typecheck, naming the API.
-- new test at the `eslint-plugin-studio` rule boundary — design-doc-decision-4, spec-acceptance-criterion-9, spec-acceptance-criterion-10 — the rule reports an unregistered folder in its descriptor, a registered folder without `services.ts` at its registration entry, and services not declared through the helper in `services.ts`. It reports nothing for a complete folder.
 - new test at the package's registry boundary (`packages/providers/tests`) — design-doc-decision-1, spec-acceptance-criterion-17 — the six existing providers lead the registration in today's order, and the derived id lists equal today's for them.
-- new test at the package's registry boundary (`packages/providers/tests`) — design-doc-decision-2, spec-acceptance-criterion-10 — every registered provider resolves through the services entry to services with its id, and ids are unique.
+- new test at the package's registry boundary (`packages/providers/tests`) — design-doc-decision-2, design-doc-decision-4, spec-acceptance-criterion-10 — every provider folder in the package is registered, provider ids are unique, and every registered provider resolves through the services entry to services that carry its id and hold every part its descriptor needs.
+- end-to-end flow — design-doc-decision-4, spec-acceptance-criterion-9 — for a sample provider part-way through being added, in each case of design-doc-decision-4, `npm test` fails with a report that names the sample's folder and file and the missing part, and nothing outside the package changes.
 - existing test `packages/providers/tests/providers.test.ts` › "reads the id builds before `anthropic` stored, and keeps writing it" — design-doc-decision-5, spec-acceptance-criterion-16 — the stored-id exception and the identity default.
 - existing tests in `packages/common/lib/tests/ai-settings.test.ts` — design-doc-decision-5, spec-acceptance-criterion-16 — configs stay where builds of every version read them:
   - "stores an accepted key where every build reads it, and makes it the default without another";
@@ -398,13 +402,13 @@ design-doc-decision-11: The package README is the complete guide to adding a pro
 - existing tests `packages/agent/browser/tests/gemini-stream.test.ts` › "streams a Gemini reply through Google’s SDK with the connected key" and `packages/agent/node/runtime/tests/pi-runtime.test.ts` › "streams with the connection’s upstream model and error rewrite" — design-doc-decision-7, spec-acceptance-criterion-13 — connections over the supported APIs still stream in both runtimes.
 - existing test `apps/ui/src/features/composer/chat-model-picker.test.tsx` › "offers only the models the connected account can run" — design-doc-decision-3, spec-acceptance-criterion-8 — the picker narrows to the account's models from what the descriptor and account declare.
 - existing test suites of `packages/common`, `packages/agent`, `apps/cli`, `apps/studio` and `apps/ui` (`npm test`), with the three test files of design-doc-decision-9 following the registry — design-doc-decision-9, spec-acceptance-criterion-17 — the six providers behave as before in connecting, selection, fallback, models, images and publishing.
-- end-to-end flow — design-doc-decision-1, design-doc-decision-2, design-doc-decision-4, design-doc-decision-6, design-doc-decision-9, design-doc-decision-11, spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-11 — following only the README, a sample chat provider (API key form, one of the four APIs) and a sample sites provider (device sign-in) each change only their folder and one registration entry. `npm run typecheck`, ESLint on the changed files, `npm run knip` and `npm test` pass.
-- end-to-end flow — design-doc-decision-6, spec-acceptance-criterion-15 — with the lint configuration unchanged, ESLint on a sample provider's folder reports:
+- end-to-end flow — design-doc-decision-1, design-doc-decision-2, design-doc-decision-4, design-doc-decision-6, design-doc-decision-9, design-doc-decision-11, spec-acceptance-criterion-1, spec-acceptance-criterion-2, spec-acceptance-criterion-11 — following only the README, a sample chat provider (API key form, one of the four APIs) and a sample sites provider (device sign-in) each change no file outside `@studio/providers`, only their folder and one registration entry. `npm run typecheck`, ESLint on the changed files, `npm run knip` and `npm test` pass.
+- end-to-end flow — design-doc-decision-6, spec-acceptance-criterion-15 — with nothing outside the package changed, ESLint on a sample provider's files reports, at each import:
   - a descriptor or config importing its services;
   - a Node API import;
   - another workspace package's import.
 
-  It reports nothing for a folder within the boundaries.
+  It reports nothing for a provider within the boundaries.
 - end-to-end flow in `studio ui`, Studio on the web and the Desktop app — design-doc-decision-1, design-doc-decision-2, design-doc-decision-5, design-doc-decision-7, spec-acceptance-criterion-3, spec-acceptance-criterion-13 — the sample chat provider meets each point of spec-acceptance-criterion-3 in each app, and its replies stream over its API.
 - end-to-end flow in `studio code` — design-doc-decision-1, design-doc-decision-5, spec-acceptance-criterion-4 — `/connect`, `/provider`, `/model`, a restart and `/disconnect` with the sample chat provider.
 - end-to-end flow in the settings and publish panel of `studio ui` and the Desktop app, and `studio push --remote-site <id>` — design-doc-decision-1, design-doc-decision-5, spec-acceptance-criterion-5, spec-acceptance-criterion-6 — the sample sites provider, and a sample offering both capabilities connected once, appear and publish as the criteria say.
@@ -435,4 +439,4 @@ design-doc-assumption-4: An error the connection stream raises before any reques
 
 design-doc-assumption-5: TypeScript derives the id unions, type maps and `AiModelId` from the registration's inferred descriptor types without a circular reference, as long as provider code references only the contract and its own folder — assumed: `npm run typecheck` passes with the registration as the only source of those types.
 
-design-doc-assumption-6: The provider lint rule reports each case of design-doc-decision-4 in the file named there, naming the missing part, when ESLint runs on a contribution's changed files — assumed: the rule's tests, and ESLint on a sample provider part-way through being added, show each report there.
+design-doc-assumption-7: The package's checks report each case of design-doc-decision-4 with a message that names the provider's folder and file and the missing part — assumed: the end-to-end flow with a sample provider part-way through being added shows each report.
