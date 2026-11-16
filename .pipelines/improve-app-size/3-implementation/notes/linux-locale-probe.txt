@@ -1,0 +1,13 @@
+# What Electron 44.9.1 reports on Linux when a locales/<locale>.pak is removed or replaced
+# Command: docker run --rm -v <scripts folder>:/probe:ro node:24-bookworm sh /probe/linux-locale-probe.sh (script in this folder; linux arm64 container on macOS)
+# validationMessage: the Chromium-localized message of an empty required <input>. Last line: number of packs left after the last case (55 shipped).
+LANG=fi_FI.UTF-8 LANGUAGE=unset removed=none: getLocale=fi validationMessage="Täytä tämä kenttä."
+LANG=fi_FI.UTF-8 LANGUAGE=unset removed=fi: getLocale=en-US validationMessage="Please fill out this field."
+LANG=fi_FI.UTF-8 LANGUAGE=fi:de removed=none: getLocale=fi validationMessage="Täytä tämä kenttä."
+LANG=fi_FI.UTF-8 LANGUAGE=fi:de removed=fi: getLocale=de validationMessage="Fülle dieses Feld aus."
+LANG=de_DE.UTF-8 LANGUAGE=unset removed=fi: getLocale=de validationMessage="Fülle dieses Feld aus."
+LANG=ca_ES.UTF-8 LANGUAGE=unset removed=none: getLocale=ca validationMessage="Empleneu aquest camp."
+LANG=en_US.UTF-8 LANGUAGE=unset removed=fi: getLocale=en-US validationMessage="Please fill out this field."
+LANG=fi_FI.UTF-8 LANGUAGE=unset removed=link:fi: getLocale=fi validationMessage="Please fill out this field."
+LANG=fi_FI.UTF-8 LANGUAGE=fi:de removed=link:fi: getLocale=fi validationMessage="Please fill out this field."
+55

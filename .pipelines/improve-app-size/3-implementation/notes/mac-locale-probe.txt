@@ -1,0 +1,24 @@
+# What Electron 44.9.1 reports on macOS when an Electron Framework locale pack is removed
+# App: the baseline macOS arm64 package (apps/studio/out/Studio-darwin-arm64/Studio.app, built from
+# the baseline commit with `npm run make:macos-arm64`), its app.asar replaced by a probe app.
+# Command: sh scripts/mac-locale-probe.sh <Studio.app> <workdir> <AppleLanguages> [changes...]
+#   (script in this folder; "fi" removes Electron Framework.framework/.../Resources/fi*.lproj,
+#   "app:fi" removes Studio.app/Contents/Resources/fi.lproj, "link:fi" replaces the framework's
+#   fi*.lproj packs with a symlink to en.lproj/locale.pak)
+# validationMessage: the Chromium-localized message of an empty required <input>.
+lang=(fi) removed=none: getLocale=fi preferred=fi validationMessage="Täytä tämä kenttä."
+lang=(fi) removed=fi: getLocale=fi preferred=fi validationMessage=""
+lang=(fi) removed=fi app:fi: getLocale=en-US preferred=fi validationMessage="Please fill out this field."
+lang=(fi,de) removed=none: getLocale=fi preferred=fi,de validationMessage="Täytä tämä kenttä."
+lang=(fi,de) removed=fi: getLocale=fi preferred=fi,de validationMessage=""
+lang=(fi,de) removed=fi app:fi: getLocale=de preferred=fi,de validationMessage="Fülle dieses Feld aus."
+lang=(de) removed=fi: getLocale=de preferred=de validationMessage="Fülle dieses Feld aus."
+lang=(en) removed=fi: getLocale=en-US preferred=en validationMessage="Please fill out this field."
+lang=(fi) removed=link:fi: getLocale=fi preferred=fi validationMessage="Please fill out this field."
+lang=(fi,de) removed=link:fi: getLocale=fi preferred=fi,de validationMessage="Please fill out this field."
+# Baseline kept locales, unmodified app:
+lang=(de) removed=none: getLocale=de preferred=de validationMessage="Fülle dieses Feld aus."
+lang=(ca) removed=none: getLocale=ca preferred=ca validationMessage="Empleneu aquest camp."
+lang=(en) removed=none: getLocale=en-US preferred=en validationMessage="Please fill out this field."
+lang=(zh-Hant) removed=none: getLocale=zh-TW preferred=zh-Hant validationMessage="請填寫這個欄位。"
+lang=(pt-PT) removed=none: getLocale=pt-PT preferred=pt-PT validationMessage="Preencha este campo."

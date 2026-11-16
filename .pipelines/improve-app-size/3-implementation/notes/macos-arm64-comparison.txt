@@ -1,0 +1,27 @@
+# Baseline (built from the baseline commit by the design doc, apps/studio/out copied to /tmp before packaging) vs the change, both packaged here with npm run make:macos-arm64 (unsigned; no Developer ID identity on this machine), DMG with npm run make:dmg-arm64; the change does not include the locale filtering (design-doc-decision-4, not built)
+# Command: sh scripts/compare-macos-package.sh <baseline out> <change out> (script in this folder)
+== baseline
+app bytes (appSizeMac): 845641998
+app KiB (du -sk): 903828
+update zip bytes: 351685241
+dmg bytes: 336770658
+Resources/cli/node_modules KiB: 251292; maps+declarations: 12453
+Resources/app.asar bytes: 61769323
+Resources/app.asar.unpacked: ./native/spotlight.node ./node_modules/@oxc-parser/binding-darwin-arm64/parser.darwin-arm64.node 
+Resources/php-bin: . ./8.4.27-studio-1 ./8.4.27-studio-1/ext ./8.4.27-studio-1/ext/xdebug.so ./8.4.27-studio-1/php ./8.4.27-studio-1/runtime.json 
+Resources/php-bin bytes: 71528738
+Electron Framework lproj count: 220
+== change
+app bytes (appSizeMac): 701949338
+app KiB (du -sk): 755960
+update zip bytes: 318258312
+dmg bytes: 252536914
+Resources/cli/node_modules KiB: 160964; maps+declarations: 0
+Resources/app.asar bytes: 37611679
+Resources/app.asar.unpacked: ./native/spotlight.node 
+Resources/php-bin: . ./8.4.27-studio-1.tar.br 
+Resources/php-bin bytes: 18492902
+Electron Framework lproj count: 220
+
+# DMG format (hdiutil imageinfo): baseline UDZO (zlib), change ULMO (lzma)
+# The change's DMG mounts (hdiutil attach -readonly) on this macOS and its Studio.app is identical to the packaged one (diff -rq exit 0)

@@ -1,0 +1,48 @@
+# Signatures of the PHP package a CI-signed Studio installs (Studio 1.25.0-dev18 from /Applications, the latest signed build on this machine)
+# Command: codesign -dvv <file>; codesign -d --entitlements - --xml <file> | plutil -p -
+== Studio.app/Contents/Resources/php-bin/8.4.26-studio-1/php
+Identifier=php
+CodeDirectory v=20500 size=137551 flags=0x10000(runtime) hashes=4288+7 location=embedded
+Authority=Developer ID Application: Automattic, Inc. (PZYM8XX95Q)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+Timestamp=13 Oct 2026 at 11:29:52
+TeamIdentifier=PZYM8XX95Q
+{
+  "com.apple.security.cs.allow-jit" => true
+  "com.apple.security.device.audio-input" => true
+  "com.apple.security.device.bluetooth" => true
+  "com.apple.security.device.camera" => true
+  "com.apple.security.device.print" => true
+  "com.apple.security.device.usb" => true
+  "com.apple.security.personal-information.location" => true
+}
+== Studio.app/Contents/Resources/php-bin/8.4.26-studio-1/ext/xdebug.so
+Identifier=xdebug
+CodeDirectory v=20500 size=1298 flags=0x10000(runtime) hashes=35+2 location=embedded
+Authority=Developer ID Application: Automattic, Inc. (PZYM8XX95Q)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+Timestamp=13 Oct 2026 at 11:29:41
+TeamIdentifier=PZYM8XX95Q
+
+# The change's signing arguments and entitlements, applied ad hoc (no Developer ID identity on this machine) to a copy of the baseline package's php
+# Command: codesign --sign - --force --options runtime --entitlements apps/studio/entitlements/php.plist php
+CodeDirectory v=20500 size=137773 flags=0x10002(adhoc,runtime) hashes=4294+7 location=embedded
+Signature=adhoc
+{
+  "com.apple.security.cs.allow-jit" => true
+  "com.apple.security.device.audio-input" => true
+  "com.apple.security.device.bluetooth" => true
+  "com.apple.security.device.camera" => true
+  "com.apple.security.device.print" => true
+  "com.apple.security.device.usb" => true
+  "com.apple.security.personal-information.location" => true
+  "com.apple.security.personal-information.photos-library" => true
+}
+PHP 8.4.27 (cli) (built: Oct 21 2026 14:22:47) (NTS clang 17.0.0)
+
+# security find-identity -v Developer ID Application count on this machine: 0
+
+# The packager at the baseline resolves @electron/osx-sign 2.7.1 (no nested copy under @electron/packager), whose default.darwin.plist apps/studio/entitlements/php.plist reproduces:
+identical keys and values (plutil -convert json, diff)

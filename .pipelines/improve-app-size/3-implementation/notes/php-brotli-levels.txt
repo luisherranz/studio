@@ -1,0 +1,6 @@
+# The baseline macOS arm64 default PHP package (apps/studio/out/Studio-darwin-arm64/Studio.app/Contents/Resources/php-bin/8.4.27-studio-1) as a tarball, brotli-compressed at several quality levels with window 24
+# Command: sh scripts/php-brotli-levels.sh <repo> <package folder> (script in this folder; Apple silicon)
+tar bytes=71532544
+quality=9 lgwin=24 bytes=21864797 compress=5.7s decompress=130ms
+quality=10 lgwin=24 bytes=19354851 compress=57.9s decompress=173ms
+quality=11 lgwin=24 bytes=18476563 compress=110.6s decompress=155ms

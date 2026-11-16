@@ -1,0 +1,24 @@
+# Offline first run of the change's packaged CLI on its bundled Node, fresh config, Studio language de
+# Command: sh scripts/offline-first-run-probe.sh <change Studio.app/Contents> <workdir> 8740 de (script in this folder; sandbox-exec blocks outgoing connections except to localhost)
+offline curl https://wordpress.org: 000
+site create exit=0
+http status: 200
+php: 8.4.27
+wordpress: 7.1.4
+WPLANG: de_DE
+import exit=0
+posts: Hello world!|Offline import probe|
+config folder (du -sk, KiB):
+70040	<workdir>/config/php-bin
+70040	<workdir>/config/php-bin/8.4.27-studio-1
+53364	<workdir>/config/server-files/phpmyadmin-versions
+116976	<workdir>/config/server-files/wordpress-versions
+total 138888
+drwx------  7 <user>  wheel       224 16 Nov 13:03 .
+drwxr-xr-x  3 <user>  wheel        96 16 Nov 13:03 ..
+-rw-r--r--  1 <user>  wheel    178379 16 Nov 13:03 ca-bundle.crt
+drwxr-xr-x  3 <user>  wheel        96 16 Nov 13:03 ext
+-rwxr-xr-x  1 <user>  wheel  70920304 16 Nov 13:00 php
+-rw-r--r--  1 <user>  wheel       387 16 Nov 13:03 php.ini
+-rw-r--r--  1 <user>  wheel       258 16 Nov 13:00 runtime.json
+stopped: 000
