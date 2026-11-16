@@ -1,7 +1,8 @@
 /**
  * Thrown by a provider's services when there is no config, or the provider no longer accepts it,
- * with a message for the user that says how to connect. Studio shows it, and forgets a config the
- * provider rejected during an operation, so every surface shows the provider as disconnected.
+ * with a message for the user that says how to connect. Studio shows it. The Desktop app,
+ * `studio ui` and the CLI also forget a config the provider rejected during an operation, so they
+ * show the provider as disconnected; Studio on the web keeps it until the user disconnects it.
  */
 export class NotConnectedError extends Error {
 	constructor( message: string ) {

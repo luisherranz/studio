@@ -393,9 +393,10 @@ export interface AccountServices< Config > {
 	connect( method: string, input: Record< string, string > ): Promise< Config >;
 	/**
 	 * Renews a credential about to expire: returns the config to store, or undefined while it still
-	 * works. Studio calls it before every use of the config, one process at a time. Throwing
-	 * `NotConnectedError` means the provider no longer accepts the config: Studio forgets it,
-	 * keeping what `account.remember` says.
+	 * works. The Desktop app, `studio ui` and the CLI call it before every use of the config, one
+	 * process at a time. Throwing `NotConnectedError` means the provider no longer accepts the
+	 * config: they forget it, keeping what `account.remember` says. Studio on the web never calls
+	 * it: it uses the stored config as it is, until `account.expiresAt` passes.
 	 */
 	refresh?( config: Config ): Promise< Config | undefined >;
 	/** Cleans up on the provider's side, such as revoking a token, before Studio removes the config. */
