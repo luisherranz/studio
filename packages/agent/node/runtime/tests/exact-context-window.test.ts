@@ -38,8 +38,9 @@ describe( 'a connection whose context window is exact', () => {
 	// The chat requests the server received, by their bodies.
 	let requests: { messages: { content: unknown }[] }[];
 
-	// A llama-server running `tiny` with a context of `context` tokens, which reports it.
-	const serve = ( context?: number ) =>
+	// A llama-server running `tiny` with a context of `context` tokens, which reports it. `answer`
+	// stands in for its answer to a chat request.
+	const serve = ( context?: number, answer?: ( summarizing: boolean ) => Response | undefined ) =>
 		vi.spyOn( globalThis, 'fetch' ).mockImplementation( async ( input, init ) => {
 			const url = String( input );
 			if ( url === `${ SERVER }/v1/models` ) {
@@ -57,7 +58,10 @@ describe( 'a connection whose context window is exact', () => {
 				const body = JSON.parse( String( init?.body ) );
 				requests.push( body );
 				const summarizing = JSON.stringify( body.messages ).includes( '<conversation>' );
-				return sse( summarizing ? 'A summary of the earlier conversation.' : 'Hello there.' );
+				return (
+					answer?.( summarizing ) ??
+					sse( summarizing ? 'A summary of the earlier conversation.' : 'Hello there.' )
+				);
 			}
 			return new Response( 'Not found', { status: 404 } );
 		} );
@@ -133,6 +137,35 @@ describe( 'a connection whose context window is exact', () => {
 		expect( JSON.stringify( requests.at( -1 )?.messages ) ).toContain(
 			'A summary of the earlier conversation.'
 		);
+	} );
+
+	it( 'ends a turn whose compaction fails for another reason with that reason', async () => {
+		// The server refuses the turn as too large for its context, then refuses the key when asked
+		// for the summary that would make it fit.
+		serve( 40_000, ( summarizing ) =>
+			summarizing
+				? Response.json( { error: { message: 'Invalid API Key' } }, { status: 401 } )
+				: Response.json(
+						{
+							error: {
+								code: 400,
+								message: 'the request exceeds the available context size, try increasing it',
+								type: 'exceed_context_size_error',
+							},
+						},
+						{ status: 400 }
+				  )
+		);
+		const session = SessionManager.inMemory( sitesRoot );
+		session.appendMessage( { role: 'user', content: 'Hi.', timestamp: 0 } );
+
+		const end = await runTurn( session );
+
+		expect( requests ).toHaveLength( 2 );
+		expect( getAgentEndFailure( end )?.message ).toContain(
+			'The local server refused the API key. Check the key, and connect again.'
+		);
+		expect( getAgentEndFailure( end )?.message ).not.toContain( 'too small' );
 	} );
 
 	it( 'leaves a server that doesn’t say its context to refuse what doesn’t fit', async () => {

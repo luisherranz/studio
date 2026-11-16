@@ -90,27 +90,71 @@ function getCompactionSettings( { exactContextWindow, model }: AiConnection, bas
 	};
 }
 
+type AgentEndEvent = Extract< AgentSessionEvent, { type: 'agent_end' } >;
+
 /**
- * On a connection whose window is exact, a turn that still overflows once pi compacted ends with
- * the connection's words, in place of pi's or the server's.
+ * On a connection whose window is exact, a turn that ends on a context overflow ends with the
+ * connection's words, in place of pi's or the server's. pi ends a run on an overflow before it
+ * compacts the conversation to retry it, so that end isn't final until the compaction is: a retry
+ * ends the turn itself, and a compaction that fails for another reason, such as a server that
+ * stopped answering, ends the turn with that failure.
  */
-function withOverflowWords( event: AgentSessionEvent, ai: AiConnection ): AgentSessionEvent {
+function createOverflowEnding( ai: AiConnection ) {
 	const words = ai.exactContextWindow?.overflowMessage;
-	if ( ! words ) {
-		return event;
-	}
-	if ( event.type === 'compaction_end' && event.reason === 'overflow' && event.errorMessage ) {
-		return { ...event, errorMessage: undefined };
-	}
-	const last = event.type === 'agent_end' ? findLastAssistant( event.messages ) : undefined;
-	if ( event.type !== 'agent_end' || event.willRetry || ! last || ! isContextOverflow( last ) ) {
-		return event;
-	}
+	let pending: AgentEndEvent | undefined;
+	let compacting = false;
+
+	const end = ( event: AgentEndEvent, errorMessage: string ): AgentEndEvent => {
+		const last = findLastAssistant( event.messages );
+		return {
+			...event,
+			willRetry: false,
+			messages: event.messages.map( ( message ) =>
+				message === last ? { ...last, errorMessage } : message
+			),
+		};
+	};
+
 	return {
-		...event,
-		messages: event.messages.map( ( message ) =>
-			message === last ? { ...last, errorMessage: words } : message
-		),
+		handle( event: AgentSessionEvent ): AgentSessionEvent[] {
+			if ( ! words ) {
+				return [ event ];
+			}
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				const last = findLastAssistant( event.messages );
+				if ( last && isContextOverflow( last ) ) {
+					pending = event;
+					return [ { ...event, willRetry: true } ];
+				}
+			}
+			if ( event.type === 'compaction_start' && event.reason === 'overflow' ) {
+				compacting = true;
+			}
+			if ( event.type !== 'compaction_end' || event.reason !== 'overflow' || ! pending ) {
+				return [ event ];
+			}
+			const overflowed = pending;
+			const summaryFailed = compacting;
+			compacting = false;
+			pending = undefined;
+			if ( event.willRetry ) {
+				return [ event ];
+			}
+			const last = findLastAssistant( overflowed.messages )!;
+			const failure =
+				summaryFailed &&
+				event.errorMessage &&
+				! isContextOverflow( { ...last, errorMessage: event.errorMessage } )
+					? event.errorMessage
+					: words;
+			return [ { ...event, errorMessage: undefined }, end( overflowed, failure ) ];
+		},
+		/** The end of a turn pi left on an overflow without compacting it. */
+		flush(): AgentSessionEvent[] {
+			const overflowed = pending;
+			pending = undefined;
+			return overflowed && words ? [ end( overflowed, words ) ] : [];
+		},
 	};
 }
 
@@ -211,6 +255,7 @@ async function runAgentSessionTurn(
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
 		let continuation = '';
+		const overflowEnding = createOverflowEnding( config.ai );
 		unsubscribe = session.subscribe( ( event ) => {
 			if (
 				event.type === 'agent_end' &&
@@ -226,7 +271,7 @@ async function runAgentSessionTurn(
 					return;
 				}
 			}
-			config.onEvent( withOverflowWords( event, config.ai ) );
+			overflowEnding.handle( event ).forEach( ( item ) => config.onEvent( item ) );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -260,6 +305,7 @@ async function runAgentSessionTurn(
 				{ triggerTurn: true }
 			);
 		}
+		overflowEnding.flush().forEach( ( item ) => config.onEvent( item ) );
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
