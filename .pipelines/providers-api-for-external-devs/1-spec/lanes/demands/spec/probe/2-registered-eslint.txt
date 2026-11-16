@@ -1,0 +1,18 @@
+Multiple projects found, consider using a single `tsconfig` with `references` to speed up, or use `noWarnOnMultipleProjects` to suppress this warning
+
+packages/providers/example/descriptor.ts
+   3:57  error  Unexpected path "./config" imported in restricted zone. The @studio/providers entry imports only the files it is made of                                                                                        import-x/no-restricted-paths
+  25:13  error  Replace `·{·id:·'api-key',·label:·()·=>·__(·'API·key'·),·kind:·'form',·input:·exampleConnectInput·}·` with `⏎↹↹↹{·id:·'api-key',·label:·()·=>·__(·'API·key'·),·kind:·'form',·input:·exampleConnectInput·},⏎↹↹`  prettier/prettier
+
+packages/providers/models.ts
+  3:40  error  Unexpected path "./example/descriptor" imported in restricted zone. The @studio/providers entry imports only the files it is made of  import-x/no-restricted-paths
+
+packages/providers/registry.ts
+  2:33  error  Unexpected path "./example/descriptor" imported in restricted zone. The @studio/providers entry imports only the files it is made of  import-x/no-restricted-paths
+
+packages/providers/types.ts
+  2:36  error  Unexpected path "./example/config" imported in restricted zone. The @studio/providers entry imports only the files it is made of  import-x/no-restricted-paths
+
+✖ 5 problems (5 errors, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+
