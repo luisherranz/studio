@@ -5,7 +5,7 @@ import { fetchModelEntries, readModelFacts, RefusedKeyError, toApiBase } from '.
 import type { LocalLlmConfig } from './config';
 import type { ProviderServices } from '../types';
 
-export const getUnreachableMessage = ( address: string ) =>
+const getUnreachableMessage = ( address: string ) =>
 	sprintf(
 		/* translators: %s: the address of the user's model server, such as http://localhost:11434 */
 		__( 'No local server answered at %s. Check the address, and that your server is running.' ),

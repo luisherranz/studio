@@ -28,14 +28,13 @@ const LISTED_MODELS_QUERY_KEY = [ 'listed-models' ] as const;
  */
 export function useListedModels( providers: readonly ProviderId[], { enabled = true } = {} ) {
 	const connector = useConnector();
-	const { listProviderModels } = connector;
-	const listed = listProviderModels
+	const listed = connector.listProviderModels
 		? providers.filter( ( id ) => getProvider( id ).ai?.userServer )
 		: [];
 	return useQueries( {
 		queries: listed.map( ( provider ) => ( {
 			queryKey: [ ...LISTED_MODELS_QUERY_KEY, provider ],
-			queryFn: () => listProviderModels!( provider ),
+			queryFn: () => connector.listProviderModels!( provider ),
 			enabled,
 			retry: false,
 			meta: { persist: false },

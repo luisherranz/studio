@@ -9,7 +9,7 @@ const FACTS_TIMEOUT_MS = 10_000;
 const LOAD_TIMEOUT_MS = 300_000;
 
 // Nothing answered at the address, or what answered isn't a server that lists models.
-export class UnreachableServerError extends Error {}
+class UnreachableServerError extends Error {}
 
 // The server refused the key, or asked for one it wasn't given.
 export class RefusedKeyError extends Error {}

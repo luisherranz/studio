@@ -31,8 +31,8 @@ export async function isProviderConnected( provider: ProviderId ): Promise< bool
 	return ( readInlineConfig( provider ) ?? ( await readProviderConfig( provider ) ) ) !== undefined;
 }
 
-// Asks for a form's fields, leaving an optional one empty when the answer is. The provider checks
-// the values once the last one is entered, and a rejection asks again.
+// Asks for a form's fields, of which an optional one takes an empty answer. The provider checks the
+// values once the last one is entered, and a rejection asks again.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
 	const fields = getConnectFields( method );
 	const values: Record< string, string > = {};

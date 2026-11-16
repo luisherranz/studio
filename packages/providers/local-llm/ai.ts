@@ -18,7 +18,7 @@ const UNKNOWN_CONTEXT_WINDOW = 128_000;
 // pi sends a request only with a key; a server that takes none ignores it.
 const NO_KEY = 'none';
 
-export const getNotAnsweringMessage = ( address: string ) =>
+const getNotAnsweringMessage = ( address: string ) =>
 	sprintf(
 		/* translators: %s: the address of the user's model server, such as http://localhost:11434 */
 		__( 'The local server at %s isn’t answering. Start it, then send your message again.' ),
