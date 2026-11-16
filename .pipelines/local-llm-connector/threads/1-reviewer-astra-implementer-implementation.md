@@ -74,3 +74,40 @@ Observed end to end in `3-implementation/notes/summary-fails.txt`:
 ### The repetitive comments about a "provider whose models a server the user runs lists": changed in bb6dee377
 
 I shortened the comments that named that provider twice over, such as "the models the server of a provider whose models a server the user runs lists". The phrase stays where it names the descriptor's `ai.userServer` statement, in the words `docs/design-docs/providers.md` uses for it.
+
+## reviewer-astra — 80c9c3df4c5b91e56b3ee0d979ba0e4f883f3f25
+
+### Follow-up: changes still requested
+
+The embedding-model finding is fixed in the current code: connection and listing share `fetchChatModels`, known embedding-only models are excluded, and an embedding-only server is rejected. I verified the updated tests and the picker against an Ollama-shaped fixture. The original 401-during-compaction case is also fixed and its regression test passes. The comment cleanup is sufficient. Removing the last-chosen-model persistence is consistent with the issue's scope.
+
+Two problems remain in the revised paths:
+
+#### [P2] Preserve draft edits while awaiting image capabilities
+
+**`apps/ui/src/features/composer/composer.tsx:408–420`**
+
+The new `await refuseImages()` leaves the text field and attachment controls editable while waiting for the local server. After it resolves, `setValue('')` and `restoreAttachments([])` clear the current draft, not just the submitted snapshot. Text typed or attachments added during that wait are silently lost, while `onSend` receives the older submission.
+
+Reproduced with a temporary behavior test: seed an image and “Original message”, leave `listProviderModels` pending, press Enter, change the field to “My new draft”, then resolve the listing with image support. `onSend` runs once and the input becomes empty instead of retaining “My new draft”. The test failed at that final assertion. Consume the submitted snapshot before waiting (restoring it if validation fails), preserve later edits explicitly, or prevent editing while validation is pending. Please add a delayed-listing regression test that exercises editing during the wait.
+
+#### [P2] Keep cancellation distinct from failed overflow recovery
+
+**`packages/agent/node/runtime/index.ts:136–150`**
+
+The new state machine ignores `compaction_end.aborted`. When the user stops an overflow summary, pi emits that event with `aborted: true`, `willRetry: false`, and no error message. This falls back to `words`, and `end()` retains the original assistant's `stopReason: 'error'`. The resulting final event says the context is too small instead of reporting an interruption; the CLI derives and persists the turn outcome from that event.
+
+I exercised the exact `createOverflowEnding` function with pi's sequence: overflow `agent_end`, overflow `compaction_start`, then aborted `compaction_end`. It emits a final `agent_end` with `stopReason: 'error'` and the context-too-small message. Handle the aborted case before choosing an error message and end the turn as interrupted. A full abort integration probe did not complete; this finding is based on the helper reproduction and the installed pi abort/compaction event path. Add an interruption regression test alongside the authentication-failure case.
+
+### Required checks on this revision
+
+- **lint — pass:** All 55 changed JS/TS files since the required merge base, without `--fix`, grouped by workspace; no lint errors.
+- **typecheck — pass:** `npm run typecheck`.
+- **tests — pass for submitted tests:** 917 tests across 77 files. Included the new CLI provider-form test, slash-command tests, provider filtering, exact-context runtime, IPC/local routes, and affected UI tests. The separate draft-loss probe failed as described; temporary probes were removed.
+- **knip — pass:** `npm run knip` reported nothing.
+- **light-and-dark — checked:** Rebuilt and ran isolated `studio ui`. In both schemes, inspected the chat-model picker with two chat models and an excluded embedding model, then the replacement error row after the fixture stopped answering. Verified that selecting the error opens Providers settings. Previous settings/static checks still apply; no live Electron or real-model inference run this round.
+- **agent-evals — not applicable:** No system prompt, tool definition/description/result shape, or agent skill/instruction changed.
+- **agents-md — reviewed:** The revised code retains provider/connector boundaries and uses the existing UI primitives. No new dependency/bundling changes. Comments were shortened as requested.
+- **scope — pass:** The changes address connector behavior and review feedback; no unrelated refactor identified.
+
+All servers and the browser session were stopped, the temporary chat was deleted, and `site stop --all` confirmed no sites were running. Production files remain unchanged by this review.
