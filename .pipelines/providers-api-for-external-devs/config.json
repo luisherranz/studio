@@ -1,5 +1,5 @@
 {
-  "target-phase": 1,
+  "target-phase": 2,
   "base-branch": "radical-pipelines",
   "worktree-folder-root": ".worktrees",
   "landing-commit-format": "{subject} (orchestrator)",
@@ -112,6 +112,10 @@
         "brief": "Read the intent for what it leaves out: the cases, mechanisms, and guarantees it does not ask for and no intended use produces, and keep the spec to what remains."
       }
     },
+    "design-doc-producer": {
+      "opus": {},
+      "astra": {}
+    },
     "reviewer": {
       "astra": {},
       "opus": {}
@@ -134,6 +138,14 @@
       "model": "opus",
       "subagent-model": "haiku"
     },
+    "design-doc-producer-opus": {
+      "model": "opus",
+      "subagent-model": "haiku"
+    },
+    "design-doc-producer-astra": {
+      "model": "astra",
+      "subagent-model": "luna"
+    },
     "implementer": {
       "model": "opus",
       "subagent-model": "sonnet"
@@ -148,6 +160,7 @@
     }
   },
   "owner-directions": [
-    "No issue backs this pipeline: the owner chose to write the intent directly from the request."
+    "No issue backs this pipeline: the owner chose to write the intent directly from the request.",
+    "Push the pipeline branch to the `fork` remote, https://github.com/luisherranz/studio.git (luisherranz/studio), instead of keeping it local."
   ]
 }
