@@ -148,6 +148,7 @@
     }
   },
   "owner-directions": [
-    "This pipeline uses no issue: write intent.md directly from the owner's request and start the run."
+    "This pipeline uses no issue: write intent.md directly from the owner's request and start the run.",
+    "When the skill's rules conflict, as when a blocked role's committed evidence makes rp next ask to land a turn the loop says not to land, continue the pipeline however the orchestrator sees fit."
   ]
 }
