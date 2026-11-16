@@ -1,0 +1,86 @@
+# How code outside @studio/providers depends on the set of providers (base 7ddc6ddac)
+
+## Constructs typed over every provider id
+$ git grep -n -E "Record< ?(Ai|Sites)?ProviderId|in (Ai|Sites)?ProviderId|Record< ?AiModelId" -- ":!.pipelines" ":!packages/providers"
+apps/cli/ai/tests/auth.test.ts:34:type Configs = Partial< Record< ProviderId, object > >;
+apps/static/src/agent/index.ts:56:	configs?: Partial< Record< ProviderId, unknown > >;
+apps/ui/src/features/composer/model-picker.tsx:29:) as Record< ProviderId, ComponentType< { className?: string } > >;
+packages/common/lib/ai-settings.ts:30:	accounts: Record< ProviderId, ProviderAccount >;
+packages/common/lib/provider-config.ts:73:const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
+packages/common/lib/remote-sites.ts:115:const STORES: { [ Id in SitesProviderId ]: ConnectionStore< ProviderSites[ Id ] > } = {
+
+## Per-provider type maps read outside the package
+$ git grep -n -w -E "ProviderConfigs|ProviderSites" -- ":!.pipelines" ":!packages/providers" | wc -l
+      47
+
+## Calls that name one provider and read its own types
+$ git grep -n -E "(getProviderServices|readProviderConfig|getRemoteSites|rememberRemoteSite|listAccountSites|useRemoteSites|useAccountSites|getProvider)\( '[a-z-]+'" -- ":!.pipelines" ":!packages/providers" | grep -v test
+apps/cli/commands/auth/logout.ts:24:		await disconnectProvider( getProviderServices( 'wpcom' ) );
+apps/cli/commands/pull-legacy.ts:204:				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull' );
+apps/cli/commands/pull.ts:155:	const pulled = ( await getRemoteSites( 'wpcom', localSiteId ) )
+apps/cli/commands/pull.ts:169:		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull' );
+apps/cli/commands/push.ts:427:	const connection = ( await getRemoteSites( 'wpcom', localSiteId ) ).find(
+apps/cli/lib/sync-api.ts:11:export const wpcomSites = getProviderServices( 'wpcom' ).sites!;
+apps/cli/lib/wpcom-auth.ts:42:		await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+apps/local/src/index.ts:221:const wpcomSites = getProviderServices( 'wpcom' ).sites!;
+apps/local/src/index.ts:684:				await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+apps/local/src/index.ts:710:			await disconnectProvider( getProviderServices( 'wpcom' ) );
+apps/static/src/agent/host.ts:524:			const generateImages = getProviderServices( 'wpcom' ).ai!.generateImages!;
+apps/static/src/wpcom-auth.ts:73:		const { token, user } = await getProviderServices( 'wpcom' ).account.connect(
+apps/static/src/wpcom-auth.ts:91:			await getProviderServices( 'wpcom' )
+apps/static/src/wpcom-services.ts:34:const wpcomSites = getProviderServices( 'wpcom' ).sites!;
+apps/studio/src/ipc-handlers.ts:965:	await disconnectProvider( getProviderServices( 'wpcom' ) );
+apps/studio/src/lib/deeplink/handlers/auth.ts:31:			getProviderServices( 'wpcom' ),
+apps/ui/src/data/queries/use-sessions.ts:222:	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerLocalSiteId );
+apps/ui/src/features/chats/session-view/index.tsx:321:	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerSite?.id );
+apps/ui/src/features/commands/use-app-menu-navigation.ts:123:						connector.getRemoteSites( 'wpcom' ).catch( () => [] ),
+apps/ui/src/features/settings/settings-view/spacefast-provider-row.tsx:18:	const descriptor = getProvider( 'spacefast' );
+apps/ui/src/features/sharing/share-dialog/index.tsx:53:	const connected = useRemoteSites( 'wpcom', site.id );
+apps/ui/src/features/sites/add-site-dialog/connect-panel.tsx:150:	const remoteSites = useAccountSites( 'wpcom', {
+apps/ui/src/features/sync/use-sync-connect-site-listener.ts:74:				queryFn: async () => ( await connector.listAccountSites( 'wpcom' ) ) as SyncSite[],
+apps/ui/src/features/sync/use-sync-connect-site-listener.ts:83:			const issue = getProvider( 'wpcom' ).sites!.issue( remote, 'push' );
+packages/common/lib/sync/constants.ts:4:export const SYNC_PUSH_SIZE_LIMIT_BYTES = getProvider( 'wpcom' ).sites!.maxPushSize!;
+
+## Spacefast's site fields read outside the package
+$ git grep -n -E "teamName|teamId|\.slug" -- "apps/**/*.ts" "apps/**/*.tsx" "packages/common/**/*.ts" "packages/agent/**/*.ts" | grep -v test
+(no matches)
+
+## Hosts validate provider ids from requests against the runtime lists
+$ grep -n -E "normalizeProviderId\(" apps/local/src/index.ts apps/studio/src/ipc-handlers.ts apps/studio/src/modules/*/lib/ipc-handlers.ts
+apps/local/src/index.ts:789:		const provider = normalizeProviderId( String( req.params.provider ) );
+apps/local/src/index.ts:857:					? normalizeProviderId( req.body.provider, AI_PROVIDER_IDS )
+apps/local/src/index.ts:1900:		const provider = normalizeProviderId( req.params.provider, SITES_PROVIDER_IDS );
+apps/local/src/index.ts:2226:			const provider = requested ? normalizeProviderId( requested, AI_PROVIDER_IDS ) : undefined;
+apps/studio/src/ipc-handlers.ts:377:	const provider = normalizeProviderId( requested );
+apps/studio/src/modules/sync/lib/ipc-handlers.ts:29:	const provider = normalizeProviderId( requested, SITES_PROVIDER_IDS );
+apps/studio/src/modules/user-settings/lib/ipc-handlers.ts:152:	const provider = normalizeProviderId( requested );
+apps/studio/src/modules/user-settings/lib/ipc-handlers.ts:192:	const provider = normalizeProviderId( requested, AI_PROVIDER_IDS );
+
+## Provider code that names its own id
+$ grep -rn -E "'(wpcom|anthropic|openai|gemini|github-copilot|spacefast)'" --include=*.ts packages/providers/*/ | grep -v /tests/ | grep -v piProvider
+packages/providers/anthropic/services.ts:7:	id: 'anthropic',
+packages/providers/anthropic/descriptor.ts:51:	id: 'anthropic',
+packages/providers/gemini/services.ts:7:	id: 'gemini',
+packages/providers/gemini/descriptor.ts:30:	id: 'gemini',
+packages/providers/github-copilot/services.ts:7:	id: 'github-copilot',
+packages/providers/github-copilot/descriptor.ts:17:	id: 'github-copilot',
+packages/providers/openai/services.ts:7:	id: 'openai',
+packages/providers/openai/descriptor.ts:35:	id: 'openai',
+packages/providers/spacefast/services.ts:8:	id: 'spacefast',
+packages/providers/spacefast/descriptor.ts:16:	id: 'spacefast',
+packages/providers/wpcom/services.ts:9:	id: 'wpcom',
+packages/providers/wpcom/descriptor.ts:60:	id: 'wpcom',
+
+## Folder names equal provider ids
+$ for d in packages/providers/*/descriptor.ts; do ...; done
+anthropic -> id: 'anthropic'
+gemini -> id: 'gemini'
+github-copilot -> id: 'github-copilot'
+openai -> id: 'openai'
+spacefast -> id: 'spacefast'
+wpcom -> id: 'wpcom'
+
+## Run-time imports of the registry, models or the package root from provider folders (a discovery from the registry must not form a cycle)
+$ grep -rn -E "from '\.\./(registry|models|index|connection)'|from '\.\.'" --include=*.ts packages/providers/*/ | grep -v /tests/
+packages/providers/github-copilot/account.ts:7:import type { AiModelId } from '../models';
+packages/providers/github-copilot/descriptor.ts:3:import type { AiModelId } from '../models';
