@@ -1,0 +1,33 @@
+# eslint-plugin-import-x (what the providers surface boundary in eslint.config.mjs:433-457 runs)
+  "version": "4.17.1",
+
+$ sed -n 121,137p node_modules/eslint-plugin-import-x/lib/rules/no-restricted-paths.js   (a glob `from` takes glob `except` patterns, matched against the import's absolute path)
+        }
+        function computeGlobPatternPathValidator(absoluteFrom, zoneExcept) {
+            let isPathException;
+            const mm = new Minimatch(absoluteFrom, { windowsPathsNoEscape: true });
+            const isPathRestricted = (absoluteImportPath) => mm.match(absoluteImportPath);
+            const hasValidExceptions = zoneExcept.every(it => isGlob(it));
+            if (hasValidExceptions) {
+                const exceptionsMm = zoneExcept.map(except => new Minimatch(except, { windowsPathsNoEscape: true }));
+                isPathException = (absoluteImportPath) => exceptionsMm.some(mm => mm.match(absoluteImportPath));
+            }
+            const reportInvalidException = reportInvalidExceptionGlob;
+            return {
+                isPathRestricted,
+                hasValidExceptions,
+                isPathException,
+                reportInvalidException,
+            };
+
+$ sed -n 92,101p node_modules/eslint-plugin-import-x/lib/utils/module-visitor.js   (the rule visits import declarations, type-only ones included, export-from and import() calls; not `typeof import()` type queries)
+    }
+    const visitors = {};
+    if (esmodule) {
+        Object.assign(visitors, {
+            ImportDeclaration: checkSource,
+            ExportNamedDeclaration: checkSource,
+            ExportAllDeclaration: checkSource,
+            CallExpression: checkImportCall,
+            ImportExpression: checkImportCall,
+        });
