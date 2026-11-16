@@ -1,0 +1,16 @@
+     × runs on the selected provider, or the first connected one, WordPress.com first 2ms
+     × defaults to WordPress.com with nothing connected 7ms
+     × stores an accepted key where every build reads it, and makes it the default without another 41ms
+     × disconnects, falls back to WordPress.com, and keeps unrelated fields 26ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  |common| lib/tests/ai-settings.test.ts > ai settings > defaults to WordPress.com with nothing connected
+AssertionError: expected { provider: 'wpcom', …(1) } to deeply equal { provider: 'wpcom', …(1) }
+ FAIL  |common| lib/tests/ai-settings.test.ts > ai settings > stores an accepted key where every build reads it, and makes it the default without another
+AssertionError: expected { provider: 'anthropic', …(1) } to deeply equal { provider: 'anthropic', …(1) }
+ FAIL  |common| lib/tests/ai-settings.test.ts > ai settings > disconnects, falls back to WordPress.com, and keeps unrelated fields
+AssertionError: expected { provider: 'wpcom', …(1) } to deeply equal { provider: 'wpcom', …(1) }
+ FAIL  |agent| protocol/sessions/tests/model.test.ts > getEffectiveSessionProvider > runs on the selected provider, or the first connected one, WordPress.com first
+ Test Files  2 failed | 44 passed (46)
+      Tests  4 failed | 442 passed (446)
+ Test Files  20 passed (20)
+      Tests  231 passed (231)
