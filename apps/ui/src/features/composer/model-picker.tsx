@@ -99,7 +99,7 @@ export function ModelPicker( {
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
-		} else if ( value === 'connect-provider' ) {
+		} else if ( value === 'connect-provider' || value.startsWith( 'listing-error:' ) ) {
 			openSettings( 'providers', undefined, 'ai-providers' );
 		} else if ( value.startsWith( 'link:' ) ) {
 			void connector.openExternalUrl( value.slice( 'link:'.length ) );
@@ -117,6 +117,8 @@ export function ModelPicker( {
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ): Command[] => {
 				const { label } = getProvider( provider );
+				// Why a server's models are missing, which scrolls into view when highlighted, and leads
+				// to its connection.
 				const listingError = listedModels[ provider ]?.error;
 				if ( listingError ) {
 					return [
@@ -125,7 +127,6 @@ export function ModelPicker( {
 							label,
 							description: listingError,
 							icon: PROVIDER_ICONS[ provider ],
-							disabled: true,
 						},
 					];
 				}

@@ -174,7 +174,10 @@ describe( 'Chat model picker', () => {
 				},
 			}
 		);
-		const { trigger } = await renderPicker( 'local-llm/qwen3:0.6b', connector );
+		const { trigger, onModelChange, history } = await renderPicker(
+			'local-llm/qwen3:0.6b',
+			connector
+		);
 		fireEvent.click( trigger );
 		expect( await screen.findByRole( 'option', { name: /^qwen3:0\.6b/ } ) ).toBeInTheDocument();
 		fireEvent.keyDown( screen.getByRole( 'listbox' ), { key: 'Escape' } );
@@ -185,8 +188,10 @@ describe( 'Chat model picker', () => {
 
 		const reason = await screen.findByRole( 'option', { name: /isn’t answering/ } );
 		expect( reason ).toHaveTextContent( 'Local LLM' );
-		expect( reason ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( screen.queryByRole( 'option', { name: /^qwen3:0\.6b/ } ) ).not.toBeInTheDocument();
+		fireEvent.click( reason );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
+		expect( onModelChange ).not.toHaveBeenCalled();
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {
