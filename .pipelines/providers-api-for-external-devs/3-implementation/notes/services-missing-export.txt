@@ -1,0 +1,15 @@
+# A provider folder whose services.ts exports no `services` (throwaway packages/providers/aabroken/services.ts: export const other = 1)
+
+## Before (services.ts at d8cd354fa)
+$ npm test -- packages/providers/tests/providers.test.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'id')
+      Tests  1 failed | 6 passed (7)
+
+## After
+$ npm test -- packages/providers/tests/providers.test.ts
+      Tests  7 passed (7)
+
+## After, with anthropic/services.ts exporting `anthropicServices` instead (restored afterwards)
+A throwaway test asserts getProviderServices( 'wpcom' ) is found, then reads the message getProviderServices( 'anthropic' ) throws:
+The anthropic provider has no services: its folder's services.ts exports them as `services`, from defineServices(). These export no `services`: aabroken/services.ts, anthropic/services.ts.
