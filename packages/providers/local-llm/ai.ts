@@ -4,7 +4,7 @@ import { NotConnectedError } from '../errors';
 import { toUserServerModelId } from '../models';
 import { getRefusedKeyMessage } from './account';
 import { getServerAddress } from './descriptor';
-import { fetchModelEntries, readModelFacts, RefusedKeyError } from './server';
+import { fetchChatModels, fetchModelEntries, readModelFacts, RefusedKeyError } from './server';
 import type { LocalLlmConfig } from './config';
 import type { AiConnection, ProviderServices } from '../types';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
@@ -134,18 +134,17 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 			throw new NotConnectedError( 'Connect Local LLM with the address of your model server.' );
 		}
 		const { baseUrl, apiKey } = config;
-		const entries = await fetchModelEntries( baseUrl, apiKey ).catch( ( error ) => {
+		const models = await fetchChatModels( baseUrl, apiKey ).catch( ( error ) => {
 			throw new Error(
 				error instanceof RefusedKeyError
 					? getRefusedKeyMessage()
 					: getNotAnsweringMessage( getServerAddress( baseUrl ) )
 			);
 		} );
-		const facts = await readModelFacts( baseUrl, apiKey, entries );
-		return entries.map( ( { id }, index ) => ( {
+		return models.map( ( { id, facts } ) => ( {
 			id: toUserServerModelId( 'local-llm', id ),
 			name: id,
-			supportsImages: facts[ index ].images === true,
+			supportsImages: facts.images === true,
 		} ) );
 	},
 };

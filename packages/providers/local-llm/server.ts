@@ -111,8 +111,8 @@ export async function fetchModelEntries(
 // What the server says about a model. A fact it doesn't say is undefined.
 export interface ModelFacts {
 	images?: boolean;
-	// It answers chat requests, and calls tools.
-	chat?: boolean;
+	// It only makes embeddings, so no chat runs on it.
+	embeddingOnly?: boolean;
 	tools?: boolean;
 	// The context it runs the model with.
 	context?: number;
@@ -146,7 +146,8 @@ async function readOllamaFacts(
 	}
 	return {
 		images: capabilities.includes( 'vision' ),
-		chat: capabilities.includes( 'completion' ),
+		embeddingOnly:
+			capabilities.length > 0 && capabilities.every( ( capability ) => capability === 'embedding' ),
 		tools: capabilities.includes( 'tools' ),
 	};
 }
@@ -208,7 +209,7 @@ function readLmStudioFacts( models: LmStudioModel[], name: string ): ModelFacts 
 		model.loaded_instances?.[ 0 ];
 	return {
 		images: model.capabilities?.vision === true,
-		chat: model.type === 'llm',
+		embeddingOnly: model.type === 'embedding',
 		tools: model.capabilities?.trained_for_tool_use === true,
 		context: positive( instance?.config?.context_length ),
 	};
@@ -255,7 +256,7 @@ export async function readModelFacts(
 	let lmStudio = await readLmStudioModels( root, apiKey );
 	const unloaded = entries.filter( ( { id } ) => {
 		const facts = lmStudio && readLmStudioFacts( lmStudio, id );
-		return context && facts?.chat && ! facts.context;
+		return context && facts && ! facts.embeddingOnly && ! facts.context;
 	} );
 	if ( unloaded.length ) {
 		await Promise.all( unloaded.map( ( { id } ) => loadLmStudioModel( baseUrl, apiKey, id ) ) );
@@ -265,4 +266,19 @@ export async function readModelFacts(
 		...fromEntries[ index ],
 		...( lmStudio && readLmStudioFacts( lmStudio, id ) ),
 	} ) );
+}
+
+/**
+ * The models the server offers for chat: those it lists at `/v1/models`, in its order, less those
+ * it says only make embeddings, each with what it says about it. Throws as `fetchModelEntries`.
+ */
+export async function fetchChatModels(
+	baseUrl: string,
+	apiKey: string | undefined
+): Promise< { id: string; facts: ModelFacts }[] > {
+	const entries = await fetchModelEntries( baseUrl, apiKey );
+	const facts = await readModelFacts( baseUrl, apiKey, entries );
+	return entries
+		.map( ( { id }, index ) => ( { id, facts: facts[ index ] } ) )
+		.filter( ( { facts: { embeddingOnly } } ) => ! embeddingOnly );
 }

@@ -17,7 +17,10 @@ const config = ( baseUrl: string ): LocalLlmConfig => ( {
 // What each server answers, by path, as their sources and docs describe it.
 const SERVERS: Record< string, Record< string, unknown > > = {
 	ollama: {
-		'/v1/models': { data: [ { id: 'qwen3:0.6b' }, { id: 'gemma3:4b' } ] },
+		'/v1/models': {
+			data: [ { id: 'all-minilm:latest' }, { id: 'qwen3:0.6b' }, { id: 'gemma3:4b' } ],
+		},
+		'/api/show all-minilm:latest': { capabilities: [ 'embedding' ] },
 		'/api/show qwen3:0.6b': { capabilities: [ 'completion', 'tools', 'thinking' ] },
 		'/api/show gemma3:4b': { capabilities: [ 'completion', 'vision' ] },
 	},
@@ -36,19 +39,30 @@ const SERVERS: Record< string, Record< string, unknown > > = {
 		'/v1/models': { data: [ { id: 'Qwen/Qwen3-8B', max_model_len: 40960 } ] },
 	},
 	'lm-studio': {
-		'/v1/models': { data: [ { id: 'google/gemma-3-4b' }, { id: 'qwen/qwen3-8b' } ] },
+		'/v1/models': {
+			data: [
+				{ id: 'google/gemma-3-4b' },
+				{ id: 'text-embedding-nomic-embed-text-v1.5' },
+				{ id: 'qwen/qwen3-8b' },
+			],
+		},
 	},
 	unknown: {
 		'/v1/models': { data: [ { id: 'some-model' } ] },
 	},
 };
 
-// LM Studio's models, which `/api/v1/models` lists with an instance once loaded.
+// LM Studio's models, which `/api/v1/models` lists with an instance once loaded. It ships the
+// embedding model.
 const LM_STUDIO_MODELS = [
 	{
 		type: 'llm',
 		key: 'google/gemma-3-4b',
 		capabilities: { vision: true, trained_for_tool_use: true },
+	},
+	{
+		type: 'embedding',
+		key: 'text-embedding-nomic-embed-text-v1.5',
 	},
 	{
 		type: 'llm',
@@ -128,7 +142,7 @@ describe( 'local-llm ai', () => {
 		[ 'lm-studio', [ 'google/gemma-3-4b', true ], [ 'qwen/qwen3-8b', false ] ],
 		[ 'unknown', [ 'some-model', false ] ],
 	] as const )(
-		'lists what %s serves, and which models read images',
+		'lists the models %s offers for chat, and which read images',
 		async ( server, ...models ) => {
 			serve( server );
 

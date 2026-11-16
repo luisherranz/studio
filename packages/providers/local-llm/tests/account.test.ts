@@ -6,7 +6,8 @@ import { localLlmAccount } from '../account';
 const json = ( status: number, body: unknown ) =>
 	new Response( JSON.stringify( body ), { status } );
 
-// Ollama lists its most recent pull first: here an embedding-only model.
+// Ollama lists its most recent pull first: here an embedding-only model, then one that can't call
+// tools.
 const ollamaModels = {
 	object: 'list',
 	data: [ { id: 'all-minilm:latest' }, { id: 'gemma3:270m' }, { id: 'qwen3:0.6b' } ],
@@ -130,15 +131,16 @@ describe( 'local-llm account', () => {
 		}
 	} );
 
-	it( 'fails on a server with no models yet', async () => {
+	it( 'fails on a server with no model to chat on yet', async () => {
 		for ( const models of [
 			{ object: 'list', data: null },
 			{ object: 'list', data: [] },
+			{ object: 'list', data: [ { id: 'all-minilm:latest' } ] },
 		] ) {
 			serveOllama( models );
 
 			await expect( connect( 'http://127.0.0.1:11434' ) ).rejects.toThrow(
-				'The local server has no models yet. Add one to your server, then connect again.'
+				'The local server has no chat model yet. Add one to your server, then connect again.'
 			);
 		}
 	} );

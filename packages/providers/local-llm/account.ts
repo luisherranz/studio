@@ -1,7 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { ConnectError } from '../errors';
 import { localLlmConnectInput } from './descriptor';
-import { fetchModelEntries, readModelFacts, RefusedKeyError, toApiBase } from './server';
+import { fetchChatModels, RefusedKeyError, toApiBase } from './server';
 import type { LocalLlmConfig } from './config';
 import type { ProviderServices } from '../types';
 
@@ -15,27 +15,11 @@ const getUnreachableMessage = ( address: string ) =>
 export const getRefusedKeyMessage = () =>
 	__( 'The local server refused the API key. Check the key, and connect again.' );
 
-// The model new chats start on: the first the server says can chat and call tools, else the
-// first that can chat, else the first it lists, when it doesn't say.
-async function proposeModel(
-	baseUrl: string,
-	apiKey: string | undefined,
-	entries: { id: string }[]
-): Promise< string > {
-	const facts = await readModelFacts( baseUrl, apiKey, entries );
-	const pick = ( test: ( index: number ) => boolean ) =>
-		entries.find( ( _entry, index ) => test( index ) )?.id;
-	return (
-		pick( ( index ) => facts[ index ].chat !== false && facts[ index ].tools === true ) ??
-		pick( ( index ) => facts[ index ].chat !== false ) ??
-		entries[ 0 ].id
-	);
-}
-
 type LocalLlmAccount = ProviderServices< LocalLlmConfig >[ 'account' ];
 
-// Connects when the server at the address lists at least one model, sending the key only when
-// there is one.
+// Connects when the server at the address offers a model to chat on, sending the key only when
+// there is one. New chats start on the first it says can call tools, else on the first it offers.
+// Ollama lists the model pulled last first, which may be one that can't.
 const connect: LocalLlmAccount[ 'connect' ] = async ( _method, input ) => {
 	const parsed = localLlmConnectInput().safeParse( input );
 	if ( ! parsed.success ) {
@@ -47,21 +31,21 @@ const connect: LocalLlmAccount[ 'connect' ] = async ( _method, input ) => {
 	if ( ! baseUrl ) {
 		throw new ConnectError( getUnreachableMessage( address ) );
 	}
-	const entries = await fetchModelEntries( baseUrl, apiKey ).catch( ( error ) => {
+	const models = await fetchChatModels( baseUrl, apiKey ).catch( ( error ) => {
 		throw new ConnectError(
 			error instanceof RefusedKeyError ? getRefusedKeyMessage() : getUnreachableMessage( address )
 		);
 	} );
-	if ( ! entries.length ) {
+	if ( ! models.length ) {
 		throw new ConnectError(
-			__( 'The local server has no models yet. Add one to your server, then connect again.' )
+			__( 'The local server has no chat model yet. Add one to your server, then connect again.' )
 		);
 	}
 	return {
 		method: 'server',
 		baseUrl,
 		...( apiKey ? { apiKey } : {} ),
-		model: await proposeModel( baseUrl, apiKey, entries ),
+		model: ( models.find( ( { facts } ) => facts.tools ) ?? models[ 0 ] ).id,
 	};
 };
 
