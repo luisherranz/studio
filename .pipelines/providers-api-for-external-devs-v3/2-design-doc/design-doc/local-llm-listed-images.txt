@@ -1,0 +1,35 @@
+# How the Local LLM provider on rp/local-llm-connector gated images on a listed model, at 1373d8541
+
+$ git show rp/local-llm-connector:apps/ui/src/features/composer/composer.tsx | sed -n 305,325p
+	} );
+	const hasAttachments = attachments.length > 0;
+	// A model a server the user runs lists reads images only when the server says it does: its
+	// listing is read once there are attachments, and waited for when they're sent before it's in.
+	const modelProvider = findAiModel( model )?.provider;
+	const readListedModels = useReadListedModels();
+	useListedModels( modelProvider ? [ modelProvider ] : [], { enabled: hasAttachments } );
+	// Why the chat's model can't take images, when it can't.
+	const refuseImages = useCallback( async (): Promise< string | undefined > => {
+		const refusal = __( 'Choose a model that supports images before sending these attachments' );
+		if ( ! modelProvider || ! getProvider( modelProvider ).ai?.userServer ) {
+			return findAiModel( model )?.model.supportsImages === false ? refusal : undefined;
+		}
+		try {
+			const listed = await readListedModels( modelProvider );
+			return listed.some( ( item ) => item.id === model && item.supportsImages )
+				? undefined
+				: refusal;
+		} catch ( error ) {
+			return ( error as Error ).message.replace( /\.$/, '' );
+		}
+
+$ git show rp/local-llm-connector:packages/providers/types.ts | grep -n -A8 "interface ListedAiModel"
+212:export interface ListedAiModel {
+213-	// Studio's id for it, which sessions record.
+214-	id: AiModelId;
+215-	// The server's name for it.
+216-	name: string;
+217-	// Whether the server says the model reads images.
+218-	supportsImages: boolean;
+219-}
+220-

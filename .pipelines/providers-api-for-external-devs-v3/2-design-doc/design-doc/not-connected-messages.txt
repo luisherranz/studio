@@ -1,0 +1,88 @@
+# Where a provider not-connected message reaches the user, at 9ef7126c2
+
+$ git grep -n "NotConnectedError(" -- packages/providers ":(exclude)**/tests/**"
+packages/providers/anthropic/ai.ts:11:			throw new NotConnectedError( 'Connect Anthropic with an API key or a Claude subscription.' );
+packages/providers/gemini/ai.ts:11:			throw new NotConnectedError( 'Connect Google Gemini with an API key.' );
+packages/providers/gemini/images.ts:97:		throw new NotConnectedError( 'Generating images with Gemini needs an API key.' );
+packages/providers/github-copilot/account.ts:37:		throw new NotConnectedError( 'Your GitHub sign-in expired. Connect GitHub Copilot again.' );
+packages/providers/github-copilot/ai.ts:33:			throw new NotConnectedError( 'Sign in with GitHub to use your Copilot plan.' );
+packages/providers/meta/ai.ts:12:			throw new NotConnectedError( 'Connect Meta with an API key.' );
+packages/providers/meta/images.ts:36:		throw new NotConnectedError( 'Generating images with Meta needs an API key.' );
+packages/providers/openai/account.ts:170:		throw new NotConnectedError( 'Your ChatGPT sign-in expired. Connect ChatGPT again.' );
+packages/providers/openai/ai.ts:28:			throw new NotConnectedError( 'Connect OpenAI with a ChatGPT plan or an API key.' );
+packages/providers/openai/images.ts:10:		throw new NotConnectedError( 'Generating images with OpenAI needs an API key.' );
+packages/providers/spacefast/sites.ts:10:		throw new NotConnectedError( __( 'Connect Spacefast to publish sites.' ) );
+packages/providers/spacefast/sites.ts:23:			throw new NotConnectedError(
+packages/providers/wpcom/ai/index.ts:62:			throw new NotConnectedError( 'Log in to WordPress.com to use its models.' );
+packages/providers/wpcom/sites/index.ts:29:		throw new NotConnectedError( __( 'Log in to WordPress.com to sync sites.' ) );
+
+$ sed -n 84,115p apps/cli/ai/auth.ts    # studio code: a chat on a provider without a usable config
+async function connect< Id extends AiProviderId >(
+	provider: Id,
+	model: AiModelId,
+	options: { sessionId?: string }
+): Promise< AiConnection > {
+	const ai = getProviderServices( provider ).ai;
+	if ( ! ai ) {
+		throw new LoggerError( `${ getProvider( provider ).label } offers no AI models.` );
+	}
+	return ai.model( await readUsableProviderConfig( provider ), model, options );
+}
+
+export async function resolveAiConnection(
+	provider: AiProviderId,
+	model: AiModelId,
+	options: { sessionId?: string } = {}
+): Promise< AiConnection > {
+	try {
+		return await connect( provider, model, options );
+	} catch ( error ) {
+		if ( error instanceof NotConnectedError ) {
+			throw new LoggerError(
+				sprintf(
+					/* translators: 1: why the provider can't be used, 2: a provider id such as anthropic */
+					__( '%1$s Use /connect %2$s to connect it.' ),
+					error.message,
+					provider
+				)
+			);
+		}
+		throw error;
+	}
+
+$ sed -n 118,128p apps/cli/ai/auth.ts    # images: a provider without a config is skipped, never called
+async function bindImageGenerator< Id extends AiProviderId >(
+	provider: Id
+): Promise< ImageGenerator | undefined > {
+	const ai = getProviderServices( provider ).ai;
+	const generateImages = ai?.generateImages;
+	const config = generateImages && ( await readUsableProviderConfig( provider ) );
+	if ( ! generateImages || ! config || ai.canGenerateImages?.( config ) === false ) {
+		return undefined;
+	}
+	return ( requests, onResult ) => generateImages( config, requests, onResult );
+}
+
+$ sed -n 388,409p apps/cli/commands/push.ts    # push: checks the config itself first, with its own message
+async function requireConfig( provider: SitesProviderId ): Promise< Config > {
+	if ( provider === 'wpcom' ) {
+		return { token: ( await requireAuthToken( 'auth' ) ).accessToken } as Config;
+	}
+	const config = await readProviderConfig( provider );
+	if ( config ) {
+		return config;
+	}
+	const { label } = getProvider( provider );
+	if (
+		! process.stdin.isTTY ||
+		! ( await confirm( { message: sprintf( __( 'Connect %s now?' ), label ) } ) )
+	) {
+		throw new LoggerError(
+			sprintf( __( 'Connect %s first.' ), label ),
+			undefined,
+			'auth_required'
+		);
+	}
+	await connectInTerminal( provider );
+	return ( await readProviderConfig( provider ) )!;
+}
