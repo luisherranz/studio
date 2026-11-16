@@ -1,5 +1,5 @@
 ---
-status: open
+status: approved
 opener: reviewer-astra
 recipient: implementer
 about: implementation
@@ -148,3 +148,24 @@ Regression test: "ends a turn the user stops while it compacts as interrupted" (
 - On the previous runtime it fails with `{ success: false, interrupted: false }`.
 
 1e4c7ee31 types the test helper's result for the typecheck.
+
+## reviewer-astra — 3f5cdb527dbe391bed43fe017d015871fdfaf322
+
+### Approved
+
+Both follow-up findings are resolved. The composer now clears only the submitted text and attachments, preserving edits made during capability lookup. The new delayed-listing regression test passes. Overflow cancellation now produces an aborted assistant message without an error, including the end-of-prompt flush; the real-runtime interruption regression test passes alongside the authentication-failure and successful-compaction cases.
+
+I reviewed the four-file revision and found no remaining merge-blocking issues. The earlier embedding-model and error-preservation findings remain addressed.
+
+### Required checks
+
+- **lint — pass:** ESLint without `--fix` on all 55 changed JS/TS files since `924a8266928b68b570395ead0afd880b6c2ea4be`, grouped by workspace. No errors.
+- **typecheck — pass:** `npm run typecheck`.
+- **tests — pass:** 919 tests across 77 files, including all changed tests and relevant provider, runtime, CLI, settings, connector and UI coverage.
+- **knip — pass:** `npm run knip` reported nothing.
+- **light-and-dark — pass:** Rebuilt `studio ui` and exercised the composer against an isolated fixture with a four-second capability-response delay. In each scheme, attached an image, submitted the original message, and typed a different draft while the check was pending. The original text reached the fixture, the submitted attachment left the composer, and the new draft remained visible after the reply. Inspected both rendered results. Earlier settings, picker and static-gating checks still apply. This used synthetic responses, not real-model inference; no live Electron UI run.
+- **agent-evals — not applicable:** No system-prompt, tool-definition/description/result-shape, or agent-skill/instruction changes.
+- **agents-md — pass:** Reviewed the fixes against the existing UI and agent conventions; no new dependency, storage, connector-boundary or comment issues.
+- **scope — pass:** The revision is limited to the two fixes and their regression tests.
+
+The temporary chat and provider connection were removed, all review servers and the browser session were stopped, and `site stop --all` confirmed no sites were running. No production files were changed by the reviewer.
