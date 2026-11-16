@@ -351,7 +351,7 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;
-		// The models the server lists now, for a provider whose models a server the user runs lists.
+		// The models the provider's server lists now.
 		listModels?( config: Config | undefined ): Promise< ListedAiModel[] >;
 		// Whether `generateImages` works with this config; defaults to true.
 		canGenerateImages?( config: Config ): boolean;

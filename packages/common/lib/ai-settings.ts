@@ -119,9 +119,9 @@ export async function recordAiModelChoice( model: string ): Promise< void > {
 }
 
 /**
- * The models the server of a provider whose models a server the user runs lists (from
- * `@studio/providers/services`) lists now, read with its stored config. Throws, with the words for
- * it, when the server doesn't answer.
+ * The models a provider's server lists now, read with its stored config, given the provider's
+ * services from `@studio/providers/services`. Throws, with the words for it, when the server
+ * doesn't answer.
  */
 export async function listProviderModels< Config >(
 	services: ProviderServices< Config >

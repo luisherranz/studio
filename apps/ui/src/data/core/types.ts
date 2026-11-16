@@ -524,9 +524,9 @@ export interface Connector {
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
-	// The models the server of a provider whose models a server the user runs lists
-	// (`ai.userServer`) lists now; rejects when it doesn't answer. Absent where Studio can't reach
-	// such a server.
+	// The models a provider's server lists now, for a provider whose models a server the user runs
+	// lists (`ai.userServer`); rejects when it doesn't answer. Absent where Studio can't reach such
+	// a server.
 	listProviderModels?( provider: ProviderId ): Promise< ListedAiModel[] >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences

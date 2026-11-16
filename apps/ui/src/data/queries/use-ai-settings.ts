@@ -28,7 +28,7 @@ const listedModelsQuery = ( connector: Connector, provider: ProviderId ) => ( {
 	meta: { persist: false },
 } );
 
-/** What the server of a provider whose models a server the user runs lists says it serves. */
+/** What a provider's server says it serves. */
 export interface ListedModels {
 	// The models it lists, once it answered.
 	models?: ListedAiModel[];
@@ -62,9 +62,8 @@ export function useListedModels( providers: readonly ProviderId[], { enabled = t
 }
 
 /**
- * Reads the models the server of a provider whose models a server the user runs lists: as last
- * read, or from the server when nothing read them yet. Rejects with why the server couldn't be
- * read.
+ * Reads the models a provider's server lists: as last read, or from the server when nothing read
+ * them yet. Rejects with why the server couldn't be read.
  */
 export function useReadListedModels() {
 	const connector = useConnector();
