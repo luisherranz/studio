@@ -31,9 +31,26 @@ export async function isProviderConnected( provider: ProviderId ): Promise< bool
 	return ( readInlineConfig( provider ) ?? ( await readProviderConfig( provider ) ) ) !== undefined;
 }
 
-// Asks for a form's fields, of which an optional one takes an empty answer. The provider checks the
-// values once they're all entered, and a rejection asks for them all again, so any of them can be
-// corrected.
+// What the provider says when it rejects the form's values, or `true` when it connects with them.
+async function connectWith(
+	provider: ProviderId,
+	method: ConnectMethod,
+	values: Record< string, string >
+): Promise< string | true > {
+	try {
+		await connectProvider( getProviderServices( provider ), method.id, values );
+		return true;
+	} catch ( rejection ) {
+		if ( rejection instanceof ConnectError ) {
+			return rejection.message;
+		}
+		throw rejection;
+	}
+}
+
+// Asks for a form's fields, of which an optional one takes an empty answer. The provider's
+// rejection of a form of one field is that field's error, so it's asked again; a longer form is
+// asked again whole, so any of its fields can be corrected.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
 	const fields = getConnectFields( method );
 	for (;;) {
@@ -50,18 +67,19 @@ async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise<
 					field.title
 				),
 				...( field.secret ? { mask: '*' } : {} ),
-				validate: ( value: string ) => field.validate( value ) ?? true,
+				validate: async ( value: string ) =>
+					field.validate( value ) ??
+					( fields.length > 1 || connectWith( provider, method, { [ field.name ]: value } ) ),
 			} );
 		}
-		try {
-			await connectProvider( getProviderServices( provider ), method.id, values );
+		if ( fields.length === 1 ) {
 			return;
-		} catch ( rejection ) {
-			if ( ! ( rejection instanceof ConnectError ) ) {
-				throw rejection;
-			}
-			console.error( rejection.message );
 		}
+		const rejection = await connectWith( provider, method, values );
+		if ( rejection === true ) {
+			return;
+		}
+		console.error( rejection );
 	}
 }
 
