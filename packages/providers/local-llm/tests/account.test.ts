@@ -64,6 +64,14 @@ describe( 'local-llm account', () => {
 		);
 	} );
 
+	it( 'connects with the key left out of the form', async () => {
+		serveOllama();
+
+		await expect(
+			localLlmAccount.connect( 'server', { address: '127.0.0.1:11434' } )
+		).resolves.toMatchObject( { baseUrl: 'http://127.0.0.1:11434/v1' } );
+	} );
+
 	it( 'proposes the first model when the server doesn’t say what its models do', async () => {
 		fetchMock.mockImplementation( async ( url: string ) =>
 			url.endsWith( '/v1/models' )

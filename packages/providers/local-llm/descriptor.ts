@@ -17,6 +17,7 @@ export const localLlmConnectInput = () =>
 		apiKey: z
 			.string()
 			.trim()
+			.default( '' )
 			.meta( {
 				title: __( 'API key' ),
 				description: __( 'Only if your server asks for one.' ),
