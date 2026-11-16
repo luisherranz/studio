@@ -1,0 +1,29 @@
+# node probe, run from packages/providers at 5af8033b1: each model the providers list, as pi-ai 1.5.0's catalog has it (Copilot ids after toCopilotModelId)
+
+$ node .probe-input.mjs   # script below
+google gemini-3.8-flash {"api":"google-generative-ai","input":["text","image"],"ctx":1048576,"max":65536,"provider":"google"}
+google gemini-4-argon {"api":"google-generative-ai","input":["text","image"],"ctx":1048576,"max":32768,"provider":"google"}
+meta muse-spark-1.3 {"api":"openai-responses","input":["text","image"],"ctx":1048576,"max":131072,"provider":"meta"}
+meta muse-wonder-1.0 {"api":"openai-responses","input":["text","image"],"ctx":1048576,"max":131072,"provider":"meta"}
+openai gpt-6.1-terra {"api":"openai-responses","input":["text","image"],"ctx":272000,"max":128000,"provider":"openai"}
+openai gpt-6.1-sol {"api":"openai-responses","input":["text","image"],"ctx":272000,"max":128000,"provider":"openai"}
+github-copilot claude-sonnet.5.5 MISSING
+github-copilot claude-sonnet-5.5 {"api":"anthropic-messages","input":["text","image"],"ctx":1000000,"max":128000,"provider":"github-copilot"}
+github-copilot gpt-6.1-terra {"api":"openai-responses","input":["text","image"],"ctx":1050000,"max":128000,"provider":"github-copilot"}
+github-copilot gemini-4-argon {"api":"openai-completions","input":["text","image"],"ctx":1048576,"max":65536,"provider":"github-copilot"}
+anthropic claude-sonnet-5-5 {"api":"anthropic-messages","input":["text","image"],"ctx":1000000,"max":128000,"provider":"anthropic"}
+anthropic claude-opus-5-5 {"api":"anthropic-messages","input":["text","image"],"ctx":1000000,"max":128000,"provider":"anthropic"}
+
+--- .probe-input.mjs
+const mods = {
+  google: ['GOOGLE_MODELS', ['gemini-3.8-flash','gemini-4-argon']],
+  meta: ['META_MODELS', ['muse-spark-1.3','muse-wonder-1.0']],
+  openai: ['OPENAI_MODELS', ['gpt-6.1-terra','gpt-6.1-sol']],
+  'github-copilot': ['GITHUB_COPILOT_MODELS', ['claude-sonnet.5.5','claude-sonnet-5.5','gpt-6.1-terra','gemini-4-argon']],
+  anthropic: ['ANTHROPIC_MODELS', ['claude-sonnet-5-5','claude-opus-5-5']],
+};
+for (const [p, [name, ids]] of Object.entries(mods)) {
+  const m = await import(`@earendil-works/pi-ai/providers/${p}.models`);
+  const cat = m[name];
+  for (const id of ids) { const e = cat[id]; console.log(p, id, e ? JSON.stringify({api:e.api, input:e.input, ctx:e.contextWindow, max:e.maxTokens, provider:e.provider}) : 'MISSING'); }
+}
