@@ -1,0 +1,30 @@
+# What one Studio Code turn sends to a model server, and what a local server does with it (2026-11-16)
+
+## Capture
+CLI built from this worktree (npm run cli:build). A capture server on 127.0.0.1:11666 records each POST and answers 400.
+$ STUDIO_WPCOM_TOKEN=dummy-token WPCOM_AI_PROXY_BASE_URL=http://127.0.0.1:11666 DEV_CONFIG_DIR=/tmp/studio-local-llm-connector-spec-producer-demands STUDIO_PROCESS_MANAGER_HOME=/tmp/studio-local-llm-connector-spec-producer-demands/daemon node apps/cli/dist/cli/main.mjs code --json "Say hello"
+Request: POST /v1/chat/completions
+Body fields: model, messages, stream, stream_options, max_tokens, tools
+Non-message fields: {"model": "fast", "stream": true, "stream_options": {"include_usage": true}, "max_tokens": 32000}
+Messages: 2 | system prompt characters: 9799 | tools: 37 | tool definitions characters: 43843 | whole body characters: 54017
+
+## The same body replayed to Ollama 0.40.0 (model qwen3:0.6b, stream off, max_tokens 1)
+Server with its VRAM-based default context (32768 on this machine, 37.4 GiB VRAM):
+HTTP 200, usage: {"prompt_tokens": 11299, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens": 1, "total_tokens": 11300} finish_reason: length
+
+Server started with OLLAMA_CONTEXT_LENGTH=4096 (the default Ollama documents for machines under 24 GiB VRAM):
+{"id":"chatcmpl-919","object":"chat.completion","created":1794825434,"model":"qwen3:0.6b","system_fingerprint":"fp_ollama","choices":[{"index":0,"message":{"role":"assistant","content":""},"finish_reason":"length"}],"usage":{"prompt_tokens":2050,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens":1,"total_tokens":2051}}
+
+HTTP 200
+Server log for that request:
+msg="truncating input prompt" limit=2050 prompt=11299 keep=4 new=2050
+
+## The same turn when nothing listens at the model server's address
+$ (as above, with WPCOM_AI_PROXY_BASE_URL=http://127.0.0.1:11999)
+auto_retry_start events: 3
+error messages in the events: "errorMessage":"Connection error." 
+"type":"turn.completed","timestamp":"2026-11-16T10:33:36.477Z","status":"error","edits":0
+
+## The error a refused turn ends with today
+From the capture run above (the capture server answers 400 with an OpenAI-style error body):
+"errorMessage":"400: {\"message\":\"capture server: request recorded\",\"type\":\"invalid_request_error\"}
