@@ -6,7 +6,6 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
@@ -352,25 +351,6 @@ const config: ForgeConfig = {
 					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
 				}
 			);
-
-			// Build CLI launcher executable for Windows AppX (Microsoft Store).
-			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
-			if ( platform === 'win32' ) {
-				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
-				const target = `node22-win-${ pkgArch }`;
-				console.log( `Building CLI launcher executable for ${ target }...` );
-				await pkgExec( [
-					'bin/studio-cli-launcher.js',
-					'--target',
-					target,
-					'--output',
-					'bin/studio-cli.exe',
-					'--compress',
-					'GZip',
-					'--no-bytecode',
-					'--public',
-				] );
-			}
 		},
 	},
 };
