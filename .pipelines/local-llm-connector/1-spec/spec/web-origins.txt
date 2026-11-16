@@ -1,0 +1,29 @@
+# Browser origins a local server accepts by default (2026-11-16)
+
+## Ollama 0.40.0, default instance at 127.0.0.1:11434 (as installed on this machine)
+$ ollama --version
+ollama version is 0.40.0
+$ curl -H "Origin: https://app.wordpress.studio" http://127.0.0.1:11434/v1/models -> HTTP 403
+$ curl -H "Origin: http://localhost:3456" http://127.0.0.1:11434/v1/models -> HTTP 200
+
+Studio on the web is published at app.wordpress.studio (docs/release-process.md:48).
+
+## llama.cpp llama-server, source at master (last commit to tools/server/server-http.cpp: cf9a9957dae4801dde95d174ec1ac1b4cac84bf8, 2026-11-14)
+common/common.h:
+678:    std::string cors_origins = "*";
+common/arg.cpp (the --cors-origins option, and the only case that narrows the default):
+    if ((!params.server_tools.empty() || mcp_enabled || params.ui_mcp_proxy) && !params.cors_origins_explicit) {
+        LOG_WRN("server tools, MCP servers or MCP proxy are enabled, using localhost as default CORS origin (change via --cors-origins)\n");
+        params.cors_origins = "localhost";
+        {"--cors-origins"}, "ORIGINS",
+        string_format(
+            "comma-separated list of allowed origins for CORS (default: %s)\n"
+            "if set to special value 'localhost', only allow same-origin requests (e.g. the built-in UI)",
+        params.cors_origins.c_str()),
+tools/server/server-http.cpp (the origin check: "*" allows every origin):
+static bool request_origin_is_allowed(const std::string & cors_origins, const httplib::Request & req, bool is_frontend_path) {
+    if (cors_origins == "*") {
+        return true;
+    }
+
+So llama-server, started without --cors-origins and without server tools or MCP, accepts a request from any origin, including https://app.wordpress.studio. Not run here: no llama-server binary is installed on this machine.
