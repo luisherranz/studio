@@ -1,0 +1,15 @@
+# The APIs the existing providers connections name (pi 1.5.0 catalogs, as each provider reads them), and the APIs pi admits
+$ node -e (import github-copilot.models.js, openai.models.js, google.models.js)
+github-copilot claude-sonnet-5.5 anthropic-messages
+github-copilot gpt-6.1-terra openai-responses
+github-copilot gemini-4-argon openai-completions
+openai gpt-6.1-terra openai-responses
+openai gpt-6.1-sol openai-responses
+gemini gemini-3.8-flash google-generative-ai
+gemini gemini-4-argon google-generative-ai
+anthropic: api fixed to anthropic-messages in packages/providers/anthropic/ai.ts
+wpcom: tiers fast=openai-completions, balanced=openai-responses, strong=anthropic-messages in packages/providers/wpcom/ai/index.ts:22-44
+
+$ grep -n "KnownApi =" node_modules/@earendil-works/pi-ai/dist/types.d.ts
+20:export type KnownApi = "openai-completions" | "mistral-conversations" | "openai-responses" | "azure-openai-responses" | "openai-codex-responses" | "anthropic-messages" | "bedrock-converse-stream" | "google-generative-ai" | "google-vertex" | "pi-messages";
+21:export type Api = KnownApi | (string & {});

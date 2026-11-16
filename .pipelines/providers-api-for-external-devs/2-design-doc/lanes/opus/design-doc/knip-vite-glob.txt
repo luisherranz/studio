@@ -1,0 +1,42 @@
+$ npx knip --workspace packages/providers --debug  (excerpt, ANSI stripped)
+[packages/providers] Enabled plugins
+[
+  'ESLint',
+  'Node.js',
+  'Playwright',
+  'Prettier',
+  'TypeScript',
+  'Vite',
+  'Vitest'
+]
+
+$ sed -n 1,12p node_modules/knip/dist/plugins/vite/index.js
+import { hasDependency } from '../../util/plugin.js';
+import { resolveConfig } from '../vitest/index.js';
+import { getBabelInputs, getIndexHtmlEntries } from './helpers.js';
+import { createImportMetaGlobVisitor } from './visitors/importMetaGlob.js';
+const title = 'Vite';
+const enablers = ['vite', 'vitest', 'vite-plus'];
+const isEnabled = ({ dependencies }) => hasDependency(dependencies, enablers);
+export const config = ['vite.config.{js,mjs,ts,cjs,mts,cts}'];
+const resolveFromAST = getBabelInputs;
+const registerVisitors = ({ ctx, registerVisitor }) => {
+    registerVisitor(createImportMetaGlobVisitor(ctx));
+};
+
+$ grep -m1 version node_modules/knip/package.json
+  "version": "6.42.0",
+
+$ sed -n 456,467p node_modules/knip/dist/graph/build.js   (non-raw import.meta.glob targets become entries, exports not analyzed)
+            if (file.importGlobs.length > 0) {
+                const [analyzedImportGlobs, entryImportGlobs] = partition(file.importGlobs, glob => glob.analyzeExports);
+                const analyzed = resolveImportGlobs(analyzedImportGlobs, filePath, principal.resolveGlobPattern, workspace.dir);
+                for (const importedFilePath of analyzed) {
+                    if (!isGitIgnored(importedFilePath))
+                        principal.addProgramPath(importedFilePath);
+                }
+                const entries = resolveImportGlobs(entryImportGlobs, filePath, principal.resolveGlobPattern, workspace.dir);
+                for (const importedFilePath of entries) {
+                    if (!isGitIgnored(importedFilePath))
+                        principal.addEntryPath(importedFilePath, { skipExportsAnalysis: true });
+                }
