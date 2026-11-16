@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import {
 	getConfiguredPhpBinaryPackageId,
 	resolveSupportedPhpVersion,
@@ -12,6 +13,7 @@ import {
 	parseElectronApp,
 	type ElectronAppInfo,
 } from 'electron-playwright-helpers';
+import { matchSupportedLocale } from '../src/lib/match-supported-locale';
 
 const DECLARATION_OR_SOURCE_MAP = /\.(map|d\.[cm]?ts)$/;
 const SENTRY_BUILD_TOOL =
@@ -57,6 +59,46 @@ function listArchiveFiles( app: ElectronAppInfo, archive: string ): string[] {
 	return JSON.parse( output.toString() ) as string[];
 }
 
+type LocalePack = { name: string; locale: string; file: string; english: string };
+
+// Chromium's locale packs, each with the English pack that matches it.
+function listLocalePacks( app: ElectronAppInfo ): LocalePack[] {
+	if ( app.platform === 'darwin' ) {
+		const resources = path.join(
+			app.resourcesDir,
+			'..',
+			'Frameworks',
+			'Electron Framework.framework',
+			'Versions',
+			'A',
+			'Resources'
+		);
+		return fs
+			.readdirSync( resources )
+			.filter( ( name ) => name.endsWith( '.lproj' ) )
+			.map( ( name ) => {
+				const [ , locale, gender = '' ] =
+					/^(.+?)(_FEMININE|_MASCULINE|_NEUTER)?\.lproj$/.exec( name ) ?? [];
+				return {
+					name,
+					locale: locale.replace( /_/g, '-' ),
+					file: path.join( resources, name, 'locale.pak' ),
+					english: path.join( resources, `en${ gender }.lproj`, 'locale.pak' ),
+				};
+			} );
+	}
+	const locales = path.join( app.resourcesDir, '..', 'locales' );
+	return fs
+		.readdirSync( locales )
+		.filter( ( name ) => name.endsWith( '.pak' ) )
+		.map( ( name ) => ( {
+			name,
+			locale: path.basename( name, '.pak' ),
+			file: path.join( locales, name ),
+			english: path.join( locales, 'en-US.pak' ),
+		} ) );
+}
+
 test.describe( 'Package composition', () => {
 	let app: ElectronAppInfo;
 
@@ -87,6 +129,25 @@ test.describe( 'Package composition', () => {
 				( file ) => DECLARATION_OR_SOURCE_MAP.test( file ) || SENTRY_BUILD_TOOL.test( file )
 			)
 		).toEqual( [] );
+	} );
+
+	test( 'gives the locales Studio shows in English the English locale pack', () => {
+		const packs = listLocalePacks( app );
+		const showsInEnglish = ( { locale }: LocalePack ) =>
+			new Intl.Locale( locale ).language !== 'en' &&
+			matchSupportedLocale( locale ) === DEFAULT_LOCALE;
+		// A link to the English pack where the package formats carry links, a copy on Windows.
+		const carriesEnglish = ( { file, english }: LocalePack ) =>
+			app.platform === 'win32'
+				? file !== english && fs.readFileSync( file ).equals( fs.readFileSync( english ) )
+				: fs.lstatSync( file ).isSymbolicLink() &&
+				  fs.realpathSync( file ) === fs.realpathSync( english );
+
+		expect( packs.filter( ( pack ) => ! fs.existsSync( pack.file ) ) ).toEqual( [] );
+		expect( packs.filter( showsInEnglish ) ).not.toEqual( [] );
+		expect( packs.filter( carriesEnglish ).map( ( pack ) => pack.name ) ).toEqual(
+			packs.filter( showsInEnglish ).map( ( pack ) => pack.name )
+		);
 	} );
 
 	test( 'ships the default PHP package as one archive', () => {
