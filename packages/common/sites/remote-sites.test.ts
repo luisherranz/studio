@@ -3,7 +3,8 @@ import os from 'os';
 import path from 'path';
 import { NotConnectedError, type ProviderServices } from '@studio/providers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { listAccountSites } from './remote-sites';
+import { readSignInContext } from '@studio/common/lib/provider-config';
+import { createRemoteSite, listAccountSites } from './remote-sites';
 
 let configDir: string;
 const readShared = () =>
@@ -58,4 +59,42 @@ it( 'disconnects the provider when it no longer renews the credential', async ()
 
 	expect( list ).not.toHaveBeenCalled();
 	expect( readShared().providerConfigs ).toBeUndefined();
+} );
+
+it( 'keeps what the provider remembers when it rejects the renewal, whatever the operation', async () => {
+	// OpenAI's ChatGPT sign-in, whose descriptor remembers the client it registered, standing in
+	// for a hosting provider whose sign-in renews and remembers.
+	const refresh = () => Promise.reject( new NotConnectedError( 'Sign in again' ) );
+	const sites = { list: vi.fn( async () => [] ), create: vi.fn(), push: vi.fn() };
+	const provider = {
+		id: 'openai',
+		account: { connect: vi.fn(), refresh },
+		sites,
+	} as unknown as Parameters< typeof listAccountSites >[ 0 ];
+	const signIn = {
+		method: 'chatgpt',
+		clientId: 'oaiapp_registration',
+		accessToken: 'access',
+		refreshToken: 'refresh',
+		accessTokenExpiresAt: 0,
+	};
+
+	for ( const operation of [
+		() => listAccountSites( provider ),
+		() => createRemoteSite( provider, 'local-site', 'Name' ),
+	] ) {
+		fs.writeFileSync(
+			path.join( configDir, 'shared.json' ),
+			JSON.stringify( { version: 1, providerConfigs: { openai: signIn } } )
+		);
+
+		await expect( operation() ).rejects.toThrow( 'Sign in again' );
+
+		expect( readShared().providerConfigs ).toBeUndefined();
+		expect( ( await readSignInContext( 'openai' as never ) ).remembered ).toEqual( {
+			clientId: 'oaiapp_registration',
+		} );
+	}
+	expect( sites.list ).not.toHaveBeenCalled();
+	expect( sites.create ).not.toHaveBeenCalled();
 } );
