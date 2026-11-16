@@ -1,5 +1,5 @@
 ---
-status: open
+status: approved
 opener: reviewer-opus
 recipient: implementer
 about: implementation
@@ -215,3 +215,46 @@ The spec's "Considered and not required" leaves several servers at once out of t
 ### 15. `docs/design-docs/providers.md`: the new table row isn't padded: changed in b4f76c3f6
 
 The row now fits the table's columns. Its Account cell reads "Server address, optional key".
+
+## reviewer-opus — 99787b394d70d3b0d557667acc48753466066213
+
+Approving. The three blocking issues are fixed, and I checked each fix against real servers. The answers on the rest hold up.
+
+### Must-fix items
+
+1. **Picker and a server that doesn't answer: fixed.**
+   - With Ollama stopped, I reopened the picker without a reload. It shows one "Local LLM" row with "The local server at http://127.0.0.1:11555 isn't answering. Start it…", and no stale models.
+   - It's the same after a reload, in dark. Choosing the row opens Settings → Providers.
+2. **Embedding models: fixed in code.** The thread says this one went to the spec's owner, but the head already drops models the server calls embedding-only.
+   - Live, Ollama listed `qwen3-4k`, `all-minilm` and `qwen3:0.6b`. Both the route and the picker offer only the two chat models.
+   - LM Studio's `type: "embedding"`, which I saw last round, maps to `embeddingOnly` in the same way. A server whose only models are embedding models now fails to connect with "no chat model yet".
+3. **Terminal connect: fixed.** In a real terminal I typed a wrong address and an empty key. It printed "No local server answered at 127.0.0.1:11999…", asked for the whole form again, and the right address gave "Connected Local LLM." A form with one field keeps its old behaviour.
+
+### The other items
+
+- **4 and 12: accepted as design decisions.** design-doc-decision-3 covers the summary on every provider's row. Please still name that change in the PR description, since it changes rows for other providers. Item 12 was a nit.
+- **5: resolved in code.** `chosenAiModels`, `recordAiModelChoice` and the cache invalidation are gone. New chats start on the account's proposed model, and nothing is left over (I grepped for the old names). A `shared.json` that a build before this round wrote, with `chosenAiModels` in it, still loads and connects. The `AccountDetails.model` comment now matches how it's used.
+- **6: agreed, leave it.** A throw during the session view's render after Local LLM is disconnected would be worse than a fallback that `servesAiModel` never lets through.
+- **7: fixed.** `/model` options for a local model have no description, and there's a test.
+- **8: fixed.**
+  - The send now waits for the listing.
+  - Live, with the server stopped, an image send kept the draft and showed the server's reason in light and dark.
+  - The notice cuts the text off in the narrow panel, but its `title` and alert carry the full text. That's the same notice other composer messages use.
+- **9: agreed.** The intermediate `agent_end` is now marked `willRetry: true`. Live, a `--json` turn on the 4k model emitted `agent_end` (willRetry), `compaction_start`, `compaction_end`, then a final `agent_end` with "The context qwen3-4k:latest runs with is too small…". The built-in providers' intermediate events carry raw text the same way.
+- **10: fixed** (`4096 + MIN_ANSWER_TOKENS`).
+- **11: fixed.** `createOverflowEnding` only uses the connector's words when the compaction failed for an overflow, and there's a test where the compaction fails on a refused key. With no `overflowMessage` it passes events through unchanged, so the built-in providers are untouched.
+- **13, 14 and 15: fixed.** The user docs mention one server at a time. There are new tests for `/model` on a local server and for `fillForm`, and the providers.md row is padded.
+
+### Rules
+
+- **lint**: `npx eslint` on the 55 JS/TS files changed since `924a826` reports no errors.
+- **typecheck**: passes.
+- **tests**: 125 files and 1,313 tests pass. That's the same set as last round, plus `apps/cli/lib/tests`, which holds the new `providers.test.ts`.
+- **knip**: reports nothing.
+- **light-and-dark**: checked in `studio ui`.
+  - Light: the picker with the two chat models, the picker's error row with the server stopped, and the composer refusing an image with the server's reason.
+  - Dark: the error row after a reload, and the same composer notice.
+  - The settings UI didn't change this round.
+- **agent-evals**: not applicable. There are no prompt, tool or skill changes, and the runtime change only acts on connections that set `exactContextWindow`.
+- **agents-md**: no new concerns. The changes this round remove shared state rather than add it, and the comments explain why.
+- **scope**: narrower than last round, since the remembered-model feature is gone. Only the AI panel row change (item 4) goes past Local LLM, and the design doc owns that decision.
