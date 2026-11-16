@@ -1204,6 +1204,33 @@ describe( 'Composer drafts and attachments', () => {
 		}
 	);
 
+	it( 'keeps what the user types while a local model’s server says whether it reads images', async () => {
+		let answer!: () => void;
+		const answered = new Promise< void >( ( resolve ) => ( answer = resolve ) );
+		const connector = createFakeConnector(
+			{},
+			{
+				getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
+				listProviderModels: async () => {
+					await answered;
+					return [ { id: 'local-llm/gemma3:4b', name: 'gemma3:4b', supportsImages: true } ];
+				},
+			}
+		);
+		saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
+		const { input, onSend } = await setup( { model: 'local-llm/gemma3:4b' }, connector );
+		await waitFor( () => expect( connector.listProviderModels ).toHaveBeenCalled() );
+
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		fireEvent.change( input, { target: { value: 'My next message' } } );
+		answer();
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
+		expect( onSend.mock.calls[ 0 ][ 0 ] ).toBe( 'What is this?' );
+		expect( input ).toHaveValue( 'My next message' );
+		expect( screen.queryByRole( 'button', { name: 'Preview photo.png' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'says why it holds images back when a local model’s server doesn’t answer', async () => {
 		const connector = createFakeConnector(
 			{},

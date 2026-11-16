@@ -405,21 +405,22 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			return;
 		}
-		if ( submission.options.images?.length ) {
-			setSending( true );
-			const refusal = await refuseImages().finally( () => setSending( false ) );
+		setSending( true );
+		try {
+			const refusal = submission.options.images?.length ? await refuseImages() : undefined;
 			if ( refusal ) {
 				setValidationError( { message: refusal, value, model, attachments, notes: stagedNotes } );
 				return;
 			}
-		}
-		// Cleared up front so a composer remounted before the send is accepted
-		// doesn't bring the sent draft back; a failed send restores it.
-		setValidationError( null );
-		setValue( '' );
-		restoreAttachments( [] );
-		setSending( true );
-		try {
+			// Cleared up front so a composer remounted before the send is accepted
+			// doesn't bring the sent draft back; a failed send restores it. Only what
+			// was sent goes: the draft may have changed while the model's server said
+			// whether it reads images.
+			setValidationError( null );
+			setValue( ( current ) => ( current === value ? '' : current ) );
+			restoreAttachments( ( current ) =>
+				current.filter( ( item ) => ! attachments.includes( item ) )
+			);
 			await onSend( submission.prompt, submission.options );
 		} catch {
 			// The parent reports the failure in a toast. Keep the draft even if
