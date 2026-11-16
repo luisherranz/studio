@@ -1,5 +1,5 @@
 ---
-status: open
+status: approved
 opener: reviewer-opus
 recipient: implementer
 about: implementation
@@ -81,3 +81,44 @@ This questions design-doc-decision-2 (services found by the folder's layout) and
 ### 3. The contract describes Desktop and CLI behavior as if every surface did it: changed in 7a99d7306
 
 `AccountServices.refresh` (`packages/providers/types.ts`) now says the Desktop app, `studio ui` and the CLI call it before every use and forget a rejected config, and that Studio on the web never calls it but uses the stored config as it is until `account.expiresAt` passes. `NotConnectedError` (`packages/providers/errors.ts`) now says Studio shows the message, the Desktop app, `studio ui` and the CLI also forget a rejected config, and Studio on the web keeps it until the user disconnects. I checked this against `apps/static/src/agent/index.ts`: `readConfig` drops only unparseable or expired configs, and a failed turn becomes the chat's error. The README's paragraph on `refresh` and `docs/design-docs/providers.md`'s renewal bullet say the same.
+
+## reviewer-opus — d6b70f90a47dbb7e6a45cb8d6970ad626d57320b
+
+Approving. Here's how I checked each answer and the rest of what changed.
+
+### 1. Services glob and the provider lint rule: I accept the ruling
+
+The design doc's owner kept design-doc-decision-2 and design-doc-decision-4, and the reasons hold:
+- The spec allows at most one registration outside a provider's folder, and a typed services list would be a second one.
+- A folder that neither list names would still pass typecheck with a typed list. Only a rule reports it.
+
+I'd still have chosen the typed list: one more line per provider in exchange for typecheck catching it, and no custom rule to maintain. But the issue asks for an easy, well-defined way to add a provider, not specifically for typecheck over lint. The spec's reading, that no file outside the folder and `registry.ts` changes, is a fair reading of "easily". The design doc now records this trade-off and the alternative, so I don't see a disagreement about the issue worth escalating.
+
+### 2. `getProviderServices` and a folder without a `services` export: fixed
+
+I reproduced my original case at `d6b70f90a`: a throwaway `aabroken/services.ts` exporting only `other`, sorted ahead of every real provider. `getProviderServices( 'wpcom' )` and `getProviderServices( 'openai' )` still return their services, and an unknown id's error names `aabroken/services.ts`. All 126 tests in `packages/providers` pass, and I removed the probe.
+
+### 3. The contract's promises about Studio on the web: fixed
+
+These now say the same thing, and it matches `apps/static/src/agent/index.ts`: `readConfig` keeps a parseable config until `expiresAt`, and nothing there calls `refresh` or forgets a rejected config.
+- `AccountServices.refresh` in `types.ts`
+- `NotConnectedError` in `errors.ts`
+- the README's paragraph on `refresh`
+- the renewal bullet in the design doc
+
+### Also changed since my review
+
+- **`remote-sites.ts`:** `listAccountSites` and `createRemoteSite` now renew the config before `forgetRejectedConfig`, not inside it. This is a real fix. With the two nested, a rejected renewal was forgotten twice: the outer `forgetRejectedConfig` read no config, then `writeProviderConfig( id, undefined )` cleared the `rememberedSignIns` entry the inner one had just written. The new test covers both operations. `push.ts` calls `requireConfig` outside its own `forgetRejectedConfig`, so it doesn't nest the same way.
+- **`ServicesOf`:** the old conditional type distributed over a union of methods, so a provider with a form method and a `device` or `loopback` method didn't have to implement `start`. The `Extract` check fixes that. The new `@ts-expect-error` would be unused, and typecheck would fail, under the old type.
+  - Nit, not blocking: in the test, `kind` is `'device' | 'loopback'` in a single type-level pass, so the loop doesn't check each kind on its own. A mixed method list is what matters, though, and the test covers it.
+
+### Rule checks at `d6b70f90a`
+
+- **lint:** no errors on the 57 changed files. As before, I ran it with `NODE_OPTIONS=--max-old-space-size=12288`, since the full set runs out of memory at Node's default heap.
+- **typecheck:** `npm run typecheck` passes.
+- **tests:** 51 files and 496 tests pass, the same set as my first review, plus the new `remote-sites.test.ts` case and the `contract.test.ts` addition.
+- **knip:** reports nothing.
+- **light-and-dark:** nothing in the UI changed since my first review. My earlier check of Settings › Providers in light and dark still stands.
+- **agent-evals:** not applicable. There's no change to the system prompt, a tool, or a skill.
+- **agents-md:** the comments added are rationale, and the docs now scope each surface's behavior correctly.
+- **scope:** the new changes fix real defects in what the change introduced; nothing unrelated.
