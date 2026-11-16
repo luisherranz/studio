@@ -35,7 +35,7 @@ spec-requirement-2: For each capability a provider offers, the developer supplie
 
 origin: derived intent-proposal-1 ("the provider and providerService type basically, the different capabilities") and Goal ("a clear, well-defined API") — a provider written by copying another provider's folder, as `packages/providers/README.md:59` tells developers to, then edited part by part
 
-- Today's providers combine capabilities independently: Anthropic, OpenAI, Google Gemini, GitHub Copilot and Meta offer AI only, Spacefast publishes without AI or pull, and WordPress.com offers both. observed: probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.log`, produced by `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/observe-api.txt`.
+- Today's providers combine capabilities independently: Anthropic, OpenAI, Google Gemini, GitHub Copilot and Meta offer AI only, Spacefast publishes without AI or pull, and WordPress.com offers both. observed: probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.txt`, produced by `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/observe-api.txt`.
 - A copy of Anthropic's folder keeps Anthropic's id in its operations and Anthropic's default model. observed: read `packages/providers/anthropic/services.ts:7` and `packages/providers/anthropic/descriptor.ts:100`.
 - The contract accepts each of these mismatches: case 3 (a default model the provider doesn't list, an undeclared method in the account description), case 4 (operations registered as Meta that name Google Gemini) and case 5 (models, pulls, Studio-created sites and archive pushes presented, none of them implemented). observed: probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/contract-probe-tsc.txt`.
 - The model picker lists a provider's models from what surfaces show (`packages/providers/models.ts:23-29`). A chat on a provider with no model connection fails with "<provider> offers no AI models." observed: read `apps/cli/ai/auth.ts:89-91`.
@@ -48,7 +48,7 @@ spec-requirement-3: A new provider can narrow the models it offers to the ones t
 origin: derived intent-proposal-1 ("the different capabilities") — GitHub Copilot, whose plan decides which of its models an account runs, and OpenAI, whose ChatGPT sign-in generates no images
 
 - GitHub Copilot's account description lists the models the plan runs. observed: read `packages/providers/github-copilot/descriptor.ts:26-34`.
-- OpenAI generates images only with an API key: the ChatGPT sign-in's config can't. observed: read `packages/providers/openai/ai.ts:50`, and probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.log` ("OpenAI image support by connection method").
+- OpenAI generates images only with an API key: the ChatGPT sign-in's config can't. observed: read `packages/providers/openai/ai.ts:50`, and probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.txt` ("OpenAI image support by connection method").
 - Image generation skips a provider whose config can't generate images, and takes the next connected provider that offers it. observed: read `apps/cli/ai/auth.ts:118-145`.
 
 spec-requirement-4: A developer writing a provider writes only what is particular to it. They don't write any of the following:
@@ -133,7 +133,7 @@ The repository's checks report a new provider that crosses one of these boundari
 origin: derived Goal ("add a new provider … easily") — Meta's addition, which had to add its folder's name to the boundary that keeps what surfaces read apart from the operations
 
 - The boundary against Node APIs and other workspace packages covers every file in the package. The boundary for what surfaces read lists the provider folders by name. observed: read `eslint.config.mjs:410-457` and `git show eb3225c1f -- eslint.config.mjs`.
-- Every existing provider's description, connect methods, forms and models are read with no request to a provider's service. observed: probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.log` ("Provider fetch calls: 0").
+- Every existing provider's description, connect methods, forms and models are read with no request to a provider's service. observed: probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.txt` ("Provider fetch calls: 0").
 
 spec-requirement-11: The package's documentation is enough for a developer who has never worked on Studio to add a provider. It covers:
 - every step of adding one, all inside the package;
@@ -197,7 +197,7 @@ origin: derived Goal ("add a new provider … easily") — the `shared.json`, se
   - `packages/common/lib/user-settings/user-preferences.ts:106`;
   - `apps/static/src/agent/index.ts:227-259`;
   - `packages/agent/protocol/sessions/model.ts:84-87`.
-- Desktop and CLI builds of different versions read the same `shared.json` and session files, so persisted values are only ever added, or read through a mapping. observed: read `docs/design-docs/providers.md:24`, and probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.log` ("Anthropic persisted id").
+- Desktop and CLI builds of different versions read the same `shared.json` and session files, so persisted values are only ever added, or read through a mapping. observed: read `docs/design-docs/providers.md:24`, and probe, `.pipelines/providers-api-for-external-devs-v3/1-spec/spec/api-observation.txt` ("Anthropic persisted id").
 
 ## Acceptance criteria
 
