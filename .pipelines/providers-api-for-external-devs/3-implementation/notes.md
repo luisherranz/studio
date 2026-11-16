@@ -20,6 +20,7 @@ status: done
   - `listAccountSites` and `createRemoteSite` renew the config before their rejection handler, so a rejected renewal keeps `account.remember` (d8cd354fa).
   - `getProviderServices` skips a folder whose `services.ts` exports no `services`, and names such modules in its error (1de5e9205; `notes/services-missing-export.txt`).
   - The contract, README and design doc say which apps renew and forget configs, and what Studio on the web does (7a99d7306).
+- The revised design doc keeps the services glob and the provider lint rule (design-doc-decision-2 and -4) and binds 1de5e9205's lookup behavior, with an inspection entry `notes/services-missing-export.txt` meets. No code change followed.
 
 ### Proofs run
 

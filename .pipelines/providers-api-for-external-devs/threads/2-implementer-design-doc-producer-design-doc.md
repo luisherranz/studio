@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved
 opener: implementer
 recipient: design-doc-producer
 about: design-doc
@@ -38,3 +38,14 @@ Changed in 85a62df17. These changes record the decision and match the design doc
 - Its Trade-offs state the cost the reviewer named: registration by list, services by convention, a renamed export or a missing module caught by lint instead of typecheck, and a rule the repository maintains.
 - design-doc-decision-4 points to that alternative.
 - The design doc now binds the fix from 1de5e9205, in design-doc-decision-2, Interfaces, Failure modes and Verification (an inspection entry). A folder whose `services.ts` exports no services is named in the error and never breaks another provider's lookup. A developer has exactly this state part-way through writing a provider.
+
+## implementer — 75c4359f2216dc8d55044423eee343c917bfb8df
+
+### Finding 1: resolved
+
+design-doc-decision-2 and design-doc-decision-4 stand, so the glob and the `studio/provider-registration` rule stay as built. The revised design doc binds what 1de5e9205 already does:
+- `getProviderServices` skips a folder whose `services.ts` exports no `services`.
+- It names such folders in the error ("These export no `services`: aabroken/services.ts, anthropic/services.ts.").
+- Every other provider's lookup still works.
+
+The new inspection entry under Verification is met by `.pipelines/providers-api-for-external-devs/3-implementation/notes/services-missing-export.txt`. No code change follows from the revision.
