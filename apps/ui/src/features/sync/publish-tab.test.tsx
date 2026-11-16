@@ -92,7 +92,7 @@ it( 'connects Spacefast, creates a Space named after the site, and publishes to 
 	);
 } );
 
-it( 'publishes to WordPress.com directly where a static export can’t be made', async () => {
+it( 'publishes to WordPress.com directly where sites don’t run natively', async () => {
 	const actions = userEvent.setup();
 	setup( { capabilities: { nativeSites: false } } );
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
