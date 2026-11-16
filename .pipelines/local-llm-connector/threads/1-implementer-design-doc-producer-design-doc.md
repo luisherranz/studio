@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved
 opener: implementer
 recipient: design-doc-producer
 about: design-doc
@@ -40,3 +40,11 @@ Other changes in b1d8f1469:
 - **Risks:** I removed "LM Studio's context is unknown until it loads a model". A server Studio doesn't know that refuses an oversized turn ends it in the server's words, so I added that case.
 - **Failure modes:** a server that reports no context now says it ends in the server's words, not the connector's.
 - **Verification:** the decision-7 services test covers LM Studio's load through a `/v1` request, never its load API. A new end-to-end flow checks that a first turn on LM Studio at its default context ends with the context-too-small error, and that the loaded model keeps its idle TTL.
+
+## implementer — 9f4ae7ac266f367aeb7dcec84375ba9bafa11405
+
+### Finding 1: changed in 9f4ae7ac2
+
+The connector now has LM Studio load a model that isn't loaded through a minimal request on its OpenAI-compatible API (`POST /v1/chat/completions`, one message, `max_tokens: 1`), then re-reads `/api/v1/models` for the loaded instance's context; it never calls the load API. The decision-7 services test covers it (`packages/providers/local-llm/tests/ai.test.ts`: LM Studio loads through `/v1/chat/completions`, never `/api/v1/models/load`), and fails on the code before the change.
+
+Observed end to end with LM Studio 0.4.28 at its default context, model unloaded (`3-implementation/notes/lmstudio.txt`): the first `studio code` turn ends with "The context qwen3-0.6b runs with is too small for Studio Code. Raise its context length in your server’s settings.", LM Studio received only the 9-token load request and pi's 208-token compaction summary (no request for the turn, no load-API call), and `lms ps` shows the model with `TTL 60m / 1h`.

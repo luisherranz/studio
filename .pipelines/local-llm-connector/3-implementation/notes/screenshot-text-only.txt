@@ -1,0 +1,15 @@
+# A screenshot in a chat on a text-only local model: Ollama 0.40.0 qwen3:0.6b (capabilities: completion, tools, thinking), 2026-11-16
+# Site local-llm-connector-shot created with 'site create --path <config dir>/sites/local-llm-connector-shot --skip-browser' (http://localhost:8881)
+
+## studio code --json "Call the take_screenshot tool once with the url http://localhost:8881/ . Then reply with only the word: done."
+assistant local-llm/qwen3:0.6b toolUse
+tool call: take_screenshot {"url": "http://localhost:8881/"}
+tool result: take_screenshot ok, content [text]: "Screenshot captured — desktop: captured full page (1248px tall). Saved to <config dir>/se…"
+assistant local-llm/qwen3:0.6b stop: "done"
+turn.completed success
+
+## The next turn in the same chat: studio code sessions resume <that id> "Reply with only the word: after" --json
+assistant local-llm/qwen3:0.6b stop: "after /think"
+turn.completed success
+
+(An earlier attempt, "for the site named local-llm-connector-shot", had the model pass the site's name as the URL; the tool reported the invalid URL and the turn still completed.)

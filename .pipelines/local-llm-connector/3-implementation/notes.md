@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # Implementation notes
@@ -13,12 +13,12 @@ status: in-progress
 - Tests at Settings, the picker, the composer, new chats, the IPC handler and the `apps/local` route (bcfe55a4e).
 - `studio code` re-resolves a chat that hasn't settled on a model after `/connect` to another server (7d9186ae8).
 - Docs: `docs/design-docs/providers.md`, `docs/design-docs/analytics-tracks.md`, `packages/providers/README.md`, the user docs' AI providers section (8bc4dbea9).
-- End to end, with evidence in `notes/`: Ollama in `studio code` (`studio-code-ollama.txt`, `studio-code-long-chat.txt`, `studio-code-tools-offline-older-build.txt`), `studio ui` in light and dark and Studio on the web (`studio-ui.txt` and its screenshots), llama-server with a key (`llama-server.txt`), LM Studio (`lmstudio.txt`), vLLM (`vllm.txt`).
+- LM Studio loads a model that isn't loaded through a minimal `/v1/chat/completions` request before the connector reads its context, never its load API (9f4ae7ac2), as design-doc-decision-7 now has it: a first turn too large for LM Studio's default context ends in the connector's words, and the model keeps LM Studio's 60-minute idle TTL (`lmstudio.txt`).
+- End to end, with evidence in `notes/`: Ollama in `studio code` (`studio-code-ollama.txt`, `studio-code-long-chat.txt`, `studio-code-tools-offline-older-build.txt`), `studio ui` in light and dark and Studio on the web (`studio-ui.txt` and its screenshots), llama-server with a key (`llama-server.txt`), LM Studio (`lmstudio.txt`), vLLM (`vllm.txt`), a `take_screenshot` turn on a text-only model and the turn after it (`screenshot-text-only.txt`).
 
 ## Remaining
 
-- Thread `threads/1-implementer-design-doc-producer-design-doc.md`: a first turn on LM Studio, before it loads the model, ends in LM Studio's words rather than the context-too-small words (spec-requirement-15). Act on the design-doc-producer's answer: if it adopts loading LM Studio's model before reading its context, add it to `server.ts`'s `readModelFacts` (`POST /api/v1/models/load`), with a case in `local-llm/tests/ai.test.ts`, and re-run `lmstudio.txt`'s first turn.
-- Not observed here: a full Studio Code turn on vLLM (its CPU backend on this Mac took 815 s to prefill a 9k-token prompt, past Node fetch's 300 s body timeout; `vllm.txt`), and a turn holding a screenshot from `take_screenshot` on a text-only model (an earlier turn's attached images were observed instead).
+- Not observed here: a Studio Code turn on vLLM getting its reply. vLLM connected, listed its model with `max_model_len`, and accepted the turn's request (200), but its CPU backend on this Mac took 815 s to prefill a 9k-token prompt, past Node fetch's 300 s body timeout (`vllm.txt`). vLLM is meant to run on a GPU.
 - Agent evals: not run. The change doesn't touch the system prompt, a tool's definition, description or result shape, or a skill; the runtime changes act only on connections that state an exact window, which no built-in provider does.
 - Failures that aren't this change's: with the CLI built, `npm test -- packages/providers packages/common packages/agent apps/cli apps/local apps/ui apps/studio` also runs the CLI's `*.e2e.test.ts` files, which start real sites in parallel and collided on port 8881 (`EADDRINUSE`). Run one file at a time, `start-stop`, `create`, `localization`, `import` and `site-management` pass; `create-blueprint` (2–3 cases) and `site-navigation` ("adds new themes") fail because the sites' PHP gets `cURL error 35: Recv failure: Connection reset by peer` from downloads.wordpress.org on this network, in code the change doesn't touch. Every other test file passes; typecheck, knip and lint report nothing.
 
@@ -43,8 +43,8 @@ status: in-progress
 
 ## Assumptions
 
-- spec-assumption-1: observed for Ollama (`/api/ps` after a load; a 4096-token context shows the words and sends nothing, `studio-code-ollama.txt`), llama-server (`meta.n_ctx`, `llama-server.txt`), vLLM (`max_model_len`, `vllm.txt`) and LM Studio once loaded; refuted for LM Studio before its first load (`lmstudio.txt`), in the thread to design-doc-producer.
-- spec-assumption-2: observed: `qwen3:0.6b` gets attachments held back and completes a turn after earlier images (`studio-ui.txt`); `qwen3-vl:2b` (Ollama `vision`) answers "red" for a red image. vLLM reports nothing, so its models count as text-only.
+- spec-assumption-1: observed for Ollama (`/api/ps` after a load; a 4096-token context shows the words and sends nothing, `studio-code-ollama.txt`), llama-server (`meta.n_ctx`, `llama-server.txt`), vLLM (`max_model_len`, `vllm.txt`) and LM Studio, including a first turn before its model is loaded once the connector has it loaded on request (`lmstudio.txt`).
+- spec-assumption-2: observed: `qwen3:0.6b` gets attachments held back, completes a turn after earlier images (`studio-ui.txt`), and completes a `take_screenshot` turn and the turn after it (`screenshot-text-only.txt`); `qwen3-vl:2b` (Ollama `vision`) answers "red" for a red image. vLLM reports nothing, so its models count as text-only.
 - spec-assumption-3: observed with all outbound traffic but localhost denied by `sandbox-exec`: a turn on a local model completed (`studio-code-tools-offline-older-build.txt`). The machine's network itself wasn't turned off.
 - spec-assumption-4: observed: `qwen3-vl:2b` called `wp_cli` and the "About us" page exists (`studio-code-tools-offline-older-build.txt`); `qwen3:0.6b` called a tool, the wrong one.
 - design-doc-assumption-1: observed on Ollama `qwen3:0.6b` at 32,768: five long turns, one compaction at 21,643 tokens, replies throughout, no "truncating input prompt" (`studio-code-long-chat.txt`).

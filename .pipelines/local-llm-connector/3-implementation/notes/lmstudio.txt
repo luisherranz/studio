@@ -30,3 +30,17 @@ GET /api/v1/models -> qwen3-0.6b loaded_instances=[('qwen3-0.6b', 8192)]   (one 
 The session started with the connector on vLLM (status line "Qwen/Qwen3-0.6B · Local LLM"), then /connect local-llm with localhost:1234 and no key:
  ⏺ Connected Local LLM.
  ⏺ studio            (reply to "Reply with only the word: studio"; the turn's session_context: {"model": "local-llm/qwen3-0.6b"})
+
+## After 9f4ae7ac2: the connector has LM Studio load the model through a chat request first
+(rebuilt CLI; LM Studio 0.4.28, 'lms server start --port 1234', 'lms unload --all': /api/v1/models reports qwen3-0.6b with no loaded instance)
+studio code: /connect local-llm with http://localhost:1234/v1 and no key, then "Reply with only the word: lmstudio":
+ ⏺ Connected Local LLM.
+ ⏺ The context qwen3-0.6b runs with is too small for Studio Code. Raise its context length in your server’s settings.
+lms ps afterwards:
+IDENTIFIER    MODEL         STATUS    SIZE         CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+qwen3-0.6b    qwen3-0.6b    IDLE      522.64 MB    8192       4           LM Studio      Local     60m / 1h
+LM Studio's server log for the turn (~/.lmstudio/server-logs), in order:
+GET /api/v1/models; GET /v1/models; POST /api/show ("Unexpected endpoint or method ... Returning 200 anyway"); GET /api/v1/models;
+POST /v1/chat/completions, 1 message, prompt_tokens 9 (the load); GET /api/v1/models (context_length 8192);
+POST /v1/chat/completions, 2 messages: pi's summarization system prompt and the conversation, 208 prompt tokens (its compact-and-retry after the connector refused the turn), max_tokens 3796;
+no request for the turn itself, and no POST /api/v1/models/load.
